@@ -47,7 +47,7 @@ Around the graph, `Agent.ask` applies a per-user rate limit, input checks for in
 
 A write must get past all three layers, and each is tested on its own in `tests/test_db_safety.py`:
 
-1. **SQL guard** (`guard.py`). sqlglot parses the query. Only one `SELECT` over the allowed tables passes. Write statements, stacked statements, writes hidden in a CTE, system catalogs and functions such as `pg_sleep` or `set_config` are rejected.
+1. **SQL guard** (`guard.py`). sqlglot parses the query. Only one `SELECT` over the allowed tables passes. Write statements, stacked statements, writes hidden in a CTE, system catalogs, `FOR UPDATE` locks and any function outside a short allowlist (so `pg_sleep`, `set_config`, `version` and the XML export helpers) are rejected.
 2. **Database role** (`scripts/setup_roles.sql`). The role `agent_ro` can only `SELECT`. It cannot `DELETE` or `CREATE` even if the guard is bypassed.
 3. **Session limits** (`db.py`). Each connection is read-only with a statement timeout, and results are cut at a row cap.
 

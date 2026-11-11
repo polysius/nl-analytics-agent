@@ -24,10 +24,10 @@ Method note: an earlier run of this evaluation scored 7 to 13 points lower at k=
 
 | Check | Cases | Passed |
 |---|---|---|
-| SQL guard: allowed read-only queries accepted | 7 | 7 |
+| SQL guard: allowed read-only queries accepted | 8 | 8 |
 | SQL guard: write statements rejected (DROP, DELETE, UPDATE, INSERT, TRUNCATE, CREATE, ALTER, GRANT, SELECT INTO, stacked, CTE write, COPY, SET) | 13 | 13 |
 | SQL guard: tables outside the allowed set rejected (pg_catalog, information_schema, catalog, CTE alias tricks) | 9 | 9 |
-| SQL guard: dangerous functions rejected | 3 | 3 |
+| SQL guard: dangerous functions, XML helpers, server info, lock clauses and case-quoted system CTE names rejected | 13 | 13 |
 | Each database layer blocks a write on its own (guard, role, read-only session) | 3 | 3 |
 | Compromised LLM obeys the attacker: attack never reaches the database, table counts unchanged | 17 | 17 |
 | Injection phrases blocked before any LLM call | 5 | 5 |
