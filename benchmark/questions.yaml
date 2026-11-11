@@ -1,0 +1,372 @@
+# Benchmark for the F1 text-to-SQL agent.
+# Every gold query was executed against the database and its output inspected (see
+# scripts/verify_benchmark.py). Status: written by the repository author's assistant and
+# verified by execution; a human review of each answer is still pending.
+#
+# Fields: id, difficulty (easy | medium | hard), question, gold_sql, ordered (true when the
+# row order is part of the answer).
+
+- id: q01
+  difficulty: easy
+  question: How many Formula 1 races are in the database?
+  gold_sql: select count(*) from race
+
+- id: q02
+  difficulty: easy
+  question: How many drivers are in the database?
+  gold_sql: select count(*) from driver
+
+- id: q03
+  difficulty: easy
+  question: Which driver has the most career race wins?
+  gold_sql: select name from driver order by total_race_wins desc limit 1
+
+- id: q04
+  difficulty: easy
+  question: Which constructor has the most career race wins?
+  gold_sql: select name from constructor order by total_race_wins desc limit 1
+
+- id: q05
+  difficulty: easy
+  question: How many circuits are in the database?
+  gold_sql: select count(*) from circuit
+
+- id: q06
+  difficulty: easy
+  question: Which driver has the most career podium finishes?
+  gold_sql: select name from driver order by total_podiums desc limit 1
+
+- id: q07
+  difficulty: easy
+  question: How many races were held in 2021?
+  gold_sql: select count(*) from race where year = 2021
+
+- id: q08
+  difficulty: easy
+  question: Which driver in the database has the earliest date of birth?
+  gold_sql: select name from driver order by date_of_birth asc limit 1
+
+- id: q09
+  difficulty: easy
+  question: How many different Grand Prix names are there?
+  gold_sql: select count(*) from grand_prix
+
+- id: q10
+  difficulty: easy
+  question: Which circuit has hosted the most races?
+  gold_sql: select name from circuit order by total_races_held desc limit 1
+
+- id: q11
+  difficulty: easy
+  question: How many female drivers are in the database?
+  gold_sql: select count(*) from driver where gender = 'FEMALE'
+
+- id: q12
+  difficulty: easy
+  question: How many pole positions did Ayrton Senna take in his career?
+  gold_sql: select total_pole_positions from driver where id = 'ayrton-senna'
+
+- id: q13
+  difficulty: easy
+  question: In which year was the first race in the database held?
+  gold_sql: select min(year) from race
+
+- id: q14
+  difficulty: easy
+  question: List the drivers who have won more than 50 races.
+  gold_sql: select name from driver where total_race_wins > 50
+
+- id: q15
+  difficulty: easy
+  question: How many races were held in the 1990s?
+  gold_sql: select count(*) from race where year between 1990 and 1999
+
+- id: q16
+  difficulty: easy
+  question: How many constructors have won at least one constructors' championship?
+  gold_sql: select count(*) from constructor where total_championship_wins > 0
+
+- id: q17
+  difficulty: easy
+  question: Which driver has scored the most career points?
+  gold_sql: select name from driver order by total_points desc limit 1
+
+- id: q18
+  difficulty: easy
+  question: How many drivers have won the drivers' championship more than once?
+  gold_sql: select count(*) from driver where total_championship_wins > 1
+
+- id: q19
+  difficulty: easy
+  question: Which constructor has the most 1-2 finishes?
+  gold_sql: select name from constructor order by total_1_and_2_finishes desc limit 1
+
+- id: q20
+  difficulty: easy
+  question: How many turns does the Monza circuit have?
+  gold_sql: select turns from circuit where id = 'monza'
+
+- id: q21
+  difficulty: medium
+  question: Who won the 2008 drivers' championship?
+  gold_sql: >
+    select d.name from season_driver_standing s join driver d on d.id = s.driver_id
+    where s.year = 2008 and s.position_number = 1
+
+- id: q22
+  difficulty: medium
+  question: Which constructor won the 2020 constructors' championship?
+  gold_sql: >
+    select c.name from season_constructor_standing s join constructor c on c.id = s.constructor_id
+    where s.year = 2020 and s.position_number = 1
+
+- id: q23
+  difficulty: medium
+  question: How many races did Lewis Hamilton win in 2014?
+  gold_sql: >
+    select count(*) from race_result rr join race r on r.id = rr.race_id
+    where rr.driver_id = 'lewis-hamilton' and r.year = 2014 and rr.position_number = 1
+
+- id: q24
+  difficulty: medium
+  question: Which driver won the most races in 2019?
+  gold_sql: >
+    select d.name from race_result rr join race r on r.id = rr.race_id join driver d on d.id = rr.driver_id
+    where r.year = 2019 and rr.position_number = 1
+    group by d.name order by count(*) desc limit 1
+
+- id: q25
+  difficulty: medium
+  question: How many pole positions did Max Verstappen have in 2022?
+  gold_sql: >
+    select count(*) from race_result rr join race r on r.id = rr.race_id
+    where rr.driver_id = 'max-verstappen' and r.year = 2022 and rr.pole_position
+
+- id: q26
+  difficulty: medium
+  question: Who won the 2021 Abu Dhabi Grand Prix?
+  gold_sql: >
+    select d.name from race_result rr join race r on r.id = rr.race_id
+    join grand_prix g on g.id = r.grand_prix_id join driver d on d.id = rr.driver_id
+    where g.id = 'abu-dhabi' and r.year = 2021 and rr.position_number = 1
+
+- id: q27
+  difficulty: medium
+  question: How many different drivers have won a race for Ferrari?
+  gold_sql: >
+    select count(distinct driver_id) from race_result
+    where constructor_id = 'ferrari' and position_number = 1
+
+- id: q28
+  difficulty: medium
+  question: How many races were held at the Spa-Francorchamps circuit between 2000 and 2009?
+  gold_sql: >
+    select count(*) from race r join circuit c on c.id = r.circuit_id
+    where c.name = 'Spa-Francorchamps' and r.year between 2000 and 2009
+
+- id: q29
+  difficulty: medium
+  question: How many pit stops did Fernando Alonso make in the 2012 season?
+  gold_sql: >
+    select count(*) from pit_stop p join race r on r.id = p.race_id
+    where p.driver_id = 'fernando-alonso' and r.year = 2012
+
+- id: q30
+  difficulty: medium
+  question: How many points did Ferrari score in the 2004 constructors' standings?
+  gold_sql: >
+    select points from season_constructor_standing
+    where constructor_id = 'ferrari' and year = 2004
+
+- id: q31
+  difficulty: medium
+  question: How many races did Sebastian Vettel win from pole position?
+  gold_sql: >
+    select count(*) from race_result
+    where driver_id = 'sebastian-vettel' and position_number = 1 and pole_position
+
+- id: q32
+  difficulty: medium
+  question: How many times did Michael Schumacher win at Monza?
+  gold_sql: >
+    select count(*) from race_result rr join race r on r.id = rr.race_id
+    where rr.driver_id = 'michael-schumacher' and r.circuit_id = 'monza' and rr.position_number = 1
+
+- id: q33
+  difficulty: medium
+  question: In how many races did Lewis Hamilton set the fastest lap?
+  gold_sql: >
+    select count(*) from race_result where driver_id = 'lewis-hamilton' and fastest_lap
+
+- id: q34
+  difficulty: medium
+  question: How many different countries have hosted a race?
+  gold_sql: >
+    select count(distinct c.country_id) from race r join circuit c on c.id = r.circuit_id
+
+- id: q35
+  difficulty: medium
+  question: Which nationality has produced the most drivers?
+  gold_sql: >
+    select c.name from driver d join country c on c.id = d.nationality_country_id
+    group by c.name order by count(*) desc limit 1
+
+- id: q36
+  difficulty: medium
+  question: Which constructor won the most races in the 1990s?
+  gold_sql: >
+    select c.name from race_result rr join race r on r.id = rr.race_id
+    join constructor c on c.id = rr.constructor_id
+    where r.year between 1990 and 1999 and rr.position_number = 1
+    group by c.name order by count(*) desc limit 1
+
+- id: q37
+  difficulty: medium
+  question: How many points did the 2021 drivers' champion score?
+  gold_sql: >
+    select points from season_driver_standing where year = 2021 and position_number = 1
+
+- id: q38
+  difficulty: medium
+  question: Which Grand Prix had the most laps of any race held in 2023?
+  gold_sql: >
+    select g.name from race r join grand_prix g on g.id = r.grand_prix_id
+    where r.year = 2023 order by r.laps desc limit 1
+
+- id: q39
+  difficulty: medium
+  question: How many races did McLaren win in 1988?
+  gold_sql: >
+    select count(*) from race_result rr join race r on r.id = rr.race_id
+    where rr.constructor_id = 'mclaren' and r.year = 1988 and rr.position_number = 1
+
+- id: q40
+  difficulty: medium
+  question: What was the fastest pit stop time in milliseconds recorded at the 2023 Monaco Grand Prix?
+  gold_sql: >
+    select min(p.time_millis) from pit_stop p join race r on r.id = p.race_id
+    where r.year = 2023 and r.grand_prix_id = 'monaco'
+
+- id: q41
+  difficulty: medium
+  question: How many races were held at Silverstone after 2010?
+  gold_sql: select count(*) from race where circuit_id = 'silverstone' and year > 2010
+
+- id: q42
+  difficulty: medium
+  question: Which driver started on pole most often at Monaco?
+  gold_sql: >
+    select d.name from race_result rr join race r on r.id = rr.race_id join driver d on d.id = rr.driver_id
+    where r.circuit_id = 'monaco' and rr.pole_position
+    group by d.name order by count(*) desc, d.name limit 1
+
+- id: q43
+  difficulty: medium
+  question: How many drivers took part in the 2010 season?
+  gold_sql: >
+    select count(distinct rr.driver_id) from race_result rr join race r on r.id = rr.race_id
+    where r.year = 2010
+
+- id: q44
+  difficulty: medium
+  question: What is the average number of laps in races held in 2015?
+  gold_sql: select avg(laps) from race where year = 2015
+
+- id: q45
+  difficulty: hard
+  question: List the drivers' champions for each season from 2015 to 2020, with the year.
+  gold_sql: >
+    select s.year, d.name from season_driver_standing s join driver d on d.id = s.driver_id
+    where s.year between 2015 and 2020 and s.position_number = 1 order by s.year
+  ordered: true
+
+- id: q46
+  difficulty: hard
+  question: Which drivers have won a race after starting outside the top 10 on the grid?
+  gold_sql: >
+    select distinct d.name from race_result rr join driver d on d.id = rr.driver_id
+    where rr.position_number = 1 and rr.grid_position_number > 10
+
+- id: q47
+  difficulty: hard
+  question: Which drivers have won races for at least four different constructors?
+  gold_sql: >
+    select d.name from race_result rr join driver d on d.id = rr.driver_id
+    where rr.position_number = 1 group by d.name
+    having count(distinct rr.constructor_id) >= 4
+
+- id: q48
+  difficulty: hard
+  question: What percentage of races since 2000 were won by the driver who started on pole position?
+  gold_sql: >
+    select round(100.0 * count(*) filter (where rr.pole_position) / count(*), 2)
+    from race_result rr join race r on r.id = rr.race_id
+    where r.year >= 2000 and rr.position_number = 1
+
+- id: q49
+  difficulty: hard
+  question: Who has the most career race wins without ever winning the drivers' championship?
+  gold_sql: >
+    select name from driver where total_championship_wins = 0
+    order by total_race_wins desc limit 1
+
+- id: q50
+  difficulty: hard
+  question: Which driver scored the most points in a single season, and in which year?
+  gold_sql: >
+    select d.name, s.year from season_driver_standing s join driver d on d.id = s.driver_id
+    order by s.points desc limit 1
+
+- id: q51
+  difficulty: hard
+  question: What was the average number of pit stops per race in each season from 2018 to 2022?
+  gold_sql: >
+    select year, round(avg(stops), 2) from (
+      select r.year, p.race_id, count(*) as stops
+      from pit_stop p join race r on r.id = p.race_id
+      where r.year between 2018 and 2022 group by r.year, p.race_id
+    ) per_race group by year order by year
+  ordered: true
+
+- id: q52
+  difficulty: hard
+  question: Which driver has won the most races at a single circuit, and which circuit is it?
+  gold_sql: >
+    select d.name, c.name from race_result rr join race r on r.id = rr.race_id
+    join driver d on d.id = rr.driver_id join circuit c on c.id = r.circuit_id
+    where rr.position_number = 1 group by d.name, c.name
+    order by count(*) desc, d.name limit 1
+
+- id: q53
+  difficulty: hard
+  question: Which drivers have won both a race for Ferrari and a race for McLaren?
+  gold_sql: >
+    select d.name from race_result rr join driver d on d.id = rr.driver_id
+    where rr.position_number = 1 and rr.constructor_id in ('ferrari', 'mclaren')
+    group by d.name having count(distinct rr.constructor_id) = 2
+
+- id: q54
+  difficulty: hard
+  question: Among drivers with at least 20 race starts, which has the highest win rate?
+  gold_sql: >
+    select name from driver where total_race_starts >= 20
+    order by total_race_wins::numeric / total_race_starts desc limit 1
+
+- id: q55
+  difficulty: hard
+  question: How many races did each constructor win in 2023? Show the constructor name and wins.
+  gold_sql: >
+    select c.name, count(*) from race_result rr join race r on r.id = rr.race_id
+    join constructor c on c.id = rr.constructor_id
+    where r.year = 2023 and rr.position_number = 1 group by c.name
+
+- id: q56
+  difficulty: hard
+  question: In which seasons did the drivers' champion win fewer than half of the races held that year?
+  gold_sql: >
+    select s.year from season_driver_standing s
+    where s.position_number = 1 and (
+      select count(*) from race_result rr join race r on r.id = rr.race_id
+      where r.year = s.year and rr.driver_id = s.driver_id and rr.position_number = 1
+    ) * 2 < (select count(*) from race r2 where r2.year = s.year)
+    order by s.year

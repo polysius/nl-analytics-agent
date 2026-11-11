@@ -1,0 +1,45 @@
+# Postgres 16 with pgvector. One database holds both the F1 data and the
+# schema-retrieval embeddings, so the agent needs no second datastore.
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin
+      POSTGRES_DB: f1
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - f1_agent_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d f1"]
+      interval: 5s
+      retries: 20
+
+  app:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    profiles: ["tools"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://agent_ro:agent_ro@postgres:5432/f1
+      ADMIN_DATABASE_URL: postgresql://admin:admin@postgres:5432/f1
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      LLM_PROVIDER: ${LLM_PROVIDER:-anthropic}
+      LLM_MODEL: ${LLM_MODEL:-claude-sonnet-5-5}
+      LLM_BASE_URL: ${LLM_BASE_URL:-}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LANGFUSE_HOST: ${LANGFUSE_HOST:-}
+      LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-}
+      LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-}
+    volumes:
+      - .:/app
+      - fastembed_cache:/opt/fastembed_cache
+
+volumes:
+  fastembed_cache:
+  f1_agent_pgdata:
+    name: f1_agent_pgdata

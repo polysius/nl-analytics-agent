@@ -1,0 +1,35 @@
+---
+config:
+  flowchart:
+    curve: linear
+---
+graph TD;
+	__start__([<p>__start__</p>]):::first
+	classify(classify)
+	clarify(clarify)
+	refuse(refuse)
+	retrieve(retrieve)
+	generate(generate)
+	execute(execute)
+	repair(repair)
+	synthesise(synthesise)
+	give_up(give_up)
+	__end__([<p>__end__</p>]):::last
+	__start__ --> classify;
+	classify -.-> clarify;
+	classify -.-> refuse;
+	classify -.-> retrieve;
+	execute -.-> give_up;
+	execute -.-> repair;
+	execute -.-> synthesise;
+	generate --> execute;
+	repair --> execute;
+	retrieve --> generate;
+	clarify --> __end__;
+	give_up --> __end__;
+	refuse --> __end__;
+	synthesise --> __end__;
+	classDef default fill:#f2f0ff,line-height:1.2
+	classDef first fill-opacity:0
+	classDef last fill:#bfb6fc
+

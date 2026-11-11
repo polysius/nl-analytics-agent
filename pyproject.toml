@@ -1,0 +1,41 @@
+[project]
+name = "nl-analytics-agent"
+version = "0.1.0"
+description = "Production-grade text-to-SQL agent over Formula 1 data: LangGraph, hybrid retrieval, tracing, evals and guardrails."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "langgraph>=0.2",
+    "psycopg[binary]>=3.2",
+    "pgvector>=0.3",
+    "sqlglot>=25",
+    "rank-bm25>=0.2.2",
+    "fastembed>=0.4",
+    "anthropic>=0.40",
+    "openai>=1.50",
+    "mcp>=2",
+    "httpx>=0.27",
+    "pyyaml>=6",
+]
+
+[dependency-groups]
+dev = ["pytest>=8", "ruff>=0.6"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/nlagent"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["db: needs the Postgres container from docker-compose"]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+ignore = ["E501"]  # long SQL strings and test tables are clearer unwrapped

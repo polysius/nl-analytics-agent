@@ -1,0 +1,46 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      # Same defaults as the app container, pointed at the compose Postgres on the runner.
+      DATABASE_URL: postgresql://agent_ro:agent_ro@localhost:5433/f1
+      ADMIN_DATABASE_URL: postgresql://admin:admin@localhost:5433/f1
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - run: uv sync --python 3.12
+
+      - name: Start Postgres and load the F1 data
+        run: |
+          docker compose up -d --wait postgres
+          bash scripts/load_data.sh
+
+      - name: Cache the embedding models
+        uses: actions/cache@v4
+        with:
+          path: /tmp/fastembed_cache
+          key: fastembed-bge-small-minilm-v1
+
+      - name: Build the column catalogue
+        env:
+          FASTEMBED_CACHE_PATH: /tmp/fastembed_cache
+        run: uv run python scripts/build_catalogue.py
+
+      - run: uv run ruff check src tests scripts
+
+      # No API key here: every test uses the scripted stub LLM.
+      - name: Tests
+        env:
+          FASTEMBED_CACHE_PATH: /tmp/fastembed_cache
+        run: uv run pytest -q
