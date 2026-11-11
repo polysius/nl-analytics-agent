@@ -9,7 +9,7 @@ from dataclasses import dataclass
 
 import sqlglot
 from sqlglot import expressions as exp
-from sqlglot.errors import ParseError
+from sqlglot.errors import SqlglotError
 
 # sqlglot gives common SQL functions (count, sum, round, coalesce, ...) their own node type.
 # Any function it cannot name is "anonymous" and is rejected unless listed here. An allowlist
@@ -41,7 +41,7 @@ def validate_select(sql: str, allowed_tables: set[str]) -> GuardResult:
     """Return the cleaned SQL if it is a single read-only SELECT over allowed tables."""
     try:
         statements = sqlglot.parse(sql, read="postgres")
-    except ParseError as error:
+    except SqlglotError as error:  # includes ParseError and TokenError
         raise UnsafeSQLError(f"SQL could not be parsed: {error}") from error
 
     statements = [s for s in statements if s is not None]

@@ -105,3 +105,16 @@ def test_common_functions_still_work():
     sql = ("SELECT count(*), round(avg(x), 2), coalesce(max(x), 0), date_trunc('year', now()) "
            "FROM (SELECT 1 AS x) t")
     assert validate_select(sql, ALLOWED).sql
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Does the `constructor` table have a `name` column?",
+        "SELECT * FROM race WHERE name = 'unterminated",
+        "I cannot answer that question.",
+    ],
+)
+def test_prose_and_broken_quoting_are_rejected_not_crashed(text):
+    with pytest.raises(UnsafeSQLError):
+        validate_select(text, ALLOWED)

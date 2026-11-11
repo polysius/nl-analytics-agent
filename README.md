@@ -9,15 +9,15 @@ The database is [f1db](https://github.com/f1db/f1db), the maintained successor o
 | Milestone | State |
 |---|---|
 | Read-only safety, MCP server, benchmark, four baseline configs | Built and tested |
-| M1 LangGraph rebuild | Built and tested with a scripted LLM. Accuracy vs baseline not yet measured (needs an API key) |
+| M1 LangGraph rebuild | Built and measured. The default graph scores 83.9% against 87.5% for the best baseline, so the acceptance bar is missed by two questions. The graph with hybrid retrieval and no reranker scores 92.9%. Differences are within noise at 56 questions. See [RESULTS.md](RESULTS.md) |
 | M2 Retrieval layer | Built and measured. See [RESULTS.md](RESULTS.md) |
 | M3 Observability | Built and unit tested. Langfuse compose file included. Not yet run against a live Langfuse server |
-| M4 Evals in CI | Built. The PR gate needs the `ANTHROPIC_API_KEY` secret and a baseline file to switch on |
+| M4 Evals in CI | Built. Judge agreement measured (20 of 20, on an easy label set). The PR gate needs an API key secret, `EVAL_ENABLED=true` and a baseline file to switch on |
 | M5 Guardrails | Built and tested. 17 compromised-LLM attacks and 5 injection phrases all stopped |
-| M6 Failure taxonomy | Classifier built and tested. Counts need benchmark runs, see [FAILURES.md](FAILURES.md) |
+| M6 Failure taxonomy | Done. Counts per configuration and three worked examples are in [FAILURES.md](FAILURES.md) |
 | M7 Multi-agent comparison | Not started (optional in the spec) |
 
-No accuracy, latency or cost figure appears in this repository unless it was measured. Everything that needs a model is marked pending, and `make eval-all` fills it in.
+Every accuracy, latency and cost figure here was measured, with `gemini-3-flash-preview`, one run per configuration. Anything not yet measured is marked as such. `make eval-all` reproduces the baseline and graph runs.
 
 ## How a question flows
 

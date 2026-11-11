@@ -20,7 +20,7 @@ def classify_failure(status: str, error: str, predicted_sql: str, gold_sql: str)
     try:
         predicted = sqlglot.parse_one(predicted_sql, read="postgres")
         gold = sqlglot.parse_one(gold_sql, read="postgres")
-    except sqlglot.errors.ParseError:
+    except sqlglot.errors.SqlglotError:
         return "other"
 
     if _tables(predicted) != _tables(gold):
