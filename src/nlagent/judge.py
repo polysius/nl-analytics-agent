@@ -26,7 +26,7 @@ def judge_faithfulness(llm: LLMClient, question: str, sql: str, result: QueryRes
     )
     response = llm.complete(prompts.JUDGE_SYSTEM, user, max_tokens=200)
     parsed = parse_json(response.text) or {}
-    return {"faithful": bool(parsed.get("faithful", False)), "reason": parsed.get("reason", "")}
+    return {"faithful": parsed.get("faithful") is True, "reason": parsed.get("reason", "")}
 
 
 @dataclass(frozen=True)
