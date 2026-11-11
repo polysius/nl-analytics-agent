@@ -1,0 +1,52 @@
+name: eval
+
+# Runs a fixed subset of the benchmark on every pull request and fails the check when
+# execution accuracy drops more than ten points below benchmark/ci_baseline.json.
+# It is skipped when the repository has no ANTHROPIC_API_KEY secret (for example on forks).
+
+on:
+  pull_request:
+
+jobs:
+  eval:
+    runs-on: ubuntu-latest
+    if: ${{ vars.EVAL_ENABLED == 'true' }}
+    env:
+      DATABASE_URL: postgresql://agent_ro:agent_ro@localhost:5433/f1
+      ADMIN_DATABASE_URL: postgresql://admin:admin@localhost:5433/f1
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      FASTEMBED_CACHE_PATH: /tmp/fastembed_cache
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv sync --python 3.12
+
+      - name: Start Postgres and load the F1 data
+        run: |
+          docker compose up -d postgres
+          bash scripts/load_data.sh
+
+      - uses: actions/cache@v4
+        with:
+          path: /tmp/fastembed_cache
+          key: fastembed-bge-small-minilm-v1
+      - run: uv run python scripts/build_catalogue.py
+
+      # --max-cost-usd stops the run early if spend passes the cap, so a bad prompt cannot run up a bill.
+      - name: Benchmark subset
+        run: >
+          uv run python -m nlagent.evaluate --config graph --limit 20
+          --max-cost-usd 1.00 --out reports/pr.json
+
+      - name: Fail on accuracy regression
+        run: >
+          uv run python -m nlagent.regression --report reports/pr.json
+          --baseline benchmark/ci_baseline.json --max-drop 0.10
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: eval-report
+          path: reports/pr.json

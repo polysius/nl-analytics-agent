@@ -1,0 +1,124 @@
+# Hand-labelled cases for measuring how well the LLM judge agrees with a human.
+# Results are real gold-query outputs from the benchmark. Answers were written to be either
+# faithful to the result or to contain one deliberate fault (wrong number, wrong name,
+# invented extra fact, wrong year, overclaim). `faithful` is the label.
+
+- question: Which driver has the most career race wins?
+  columns: [name]
+  rows: [["Lewis Hamilton"]]
+  answer: Lewis Hamilton has the most career race wins.
+  faithful: true
+
+- question: Which driver has the most career race wins?
+  columns: [name]
+  rows: [["Lewis Hamilton"]]
+  answer: Michael Schumacher has the most career race wins.
+  faithful: false
+
+- question: Which driver has the most career race wins?
+  columns: [name]
+  rows: [["Lewis Hamilton"]]
+  answer: Lewis Hamilton has the most career race wins, with 105 victories.
+  faithful: false
+
+- question: How many races did Lewis Hamilton win in 2014?
+  columns: [count]
+  rows: [[11]]
+  answer: Lewis Hamilton won 11 races in 2014.
+  faithful: true
+
+- question: How many races did Lewis Hamilton win in 2014?
+  columns: [count]
+  rows: [[11]]
+  answer: Lewis Hamilton won 10 races in 2014.
+  faithful: false
+
+- question: How many races did Lewis Hamilton win in 2014?
+  columns: [count]
+  rows: [[11]]
+  answer: Lewis Hamilton won 11 races in 2014 and took the championship that year.
+  faithful: false
+
+- question: Who won the 2021 Abu Dhabi Grand Prix?
+  columns: [name]
+  rows: [["Max Verstappen"]]
+  answer: Max Verstappen won the 2021 Abu Dhabi Grand Prix.
+  faithful: true
+
+- question: Who won the 2021 Abu Dhabi Grand Prix?
+  columns: [name]
+  rows: [["Max Verstappen"]]
+  answer: Lewis Hamilton won the 2021 Abu Dhabi Grand Prix.
+  faithful: false
+
+- question: Which constructor won the 2020 constructors' championship?
+  columns: [name]
+  rows: [["Mercedes"]]
+  answer: Mercedes won the 2020 constructors' championship.
+  faithful: true
+
+- question: Which constructor won the 2020 constructors' championship?
+  columns: [name]
+  rows: [["Mercedes"]]
+  answer: Red Bull won the 2020 constructors' championship.
+  faithful: false
+
+- question: List the drivers' champions for each season from 2015 to 2017.
+  columns: [year, name]
+  rows: [[2015, "Lewis Hamilton"], [2016, "Nico Rosberg"], [2017, "Lewis Hamilton"]]
+  answer: Hamilton won in 2015, Rosberg in 2016 and Hamilton again in 2017.
+  faithful: true
+
+- question: List the drivers' champions for each season from 2015 to 2017.
+  columns: [year, name]
+  rows: [[2015, "Lewis Hamilton"], [2016, "Nico Rosberg"], [2017, "Lewis Hamilton"]]
+  answer: Hamilton won in 2015, Rosberg in 2016 and Vettel in 2017.
+  faithful: false
+
+- question: How many female drivers are in the database?
+  columns: [count]
+  rows: [[6]]
+  answer: There are 6 female drivers in the database.
+  faithful: true
+
+- question: How many female drivers are in the database?
+  columns: [count]
+  rows: [[6]]
+  answer: There are 16 female drivers in the database.
+  faithful: false
+
+- question: How many pit stops did Fernando Alonso make in the 2012 season?
+  columns: [count]
+  rows: [[35]]
+  answer: Fernando Alonso made 35 pit stops in 2012.
+  faithful: true
+
+- question: How many pit stops did Fernando Alonso make in the 2012 season?
+  columns: [count]
+  rows: [[35]]
+  answer: Fernando Alonso made 35 pit stops in 2012, more than any other driver that season.
+  faithful: false
+
+- question: Which Grand Prix had the most laps of any race held in 2023?
+  columns: [name]
+  rows: [["Monaco"]]
+  answer: The Monaco Grand Prix had the most laps in 2023.
+  faithful: true
+
+- question: Which Grand Prix had the most laps of any race held in 2023?
+  columns: [name]
+  rows: [["Monaco"]]
+  answer: No matching data was found.
+  faithful: false
+
+- question: Who won the 2008 drivers' championship?
+  columns: [name]
+  rows: []
+  answer: No matching data was found.
+  faithful: true
+
+- question: Who won the 2008 drivers' championship?
+  columns: [name]
+  rows: []
+  answer: Lewis Hamilton won the 2008 drivers' championship.
+  faithful: false

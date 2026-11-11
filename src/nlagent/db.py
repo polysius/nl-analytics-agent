@@ -23,11 +23,11 @@ class QueryError(RuntimeError):
 
 @lru_cache(maxsize=1)
 def allowed_tables() -> frozenset[str]:
-    """Real tables in the public schema. Everything else is off limits to the agent."""
+    """Tables and views in the public schema. Everything else is off limits to the agent."""
     with psycopg.connect(settings.admin_database_url) as conn:
         rows = conn.execute(
             "select table_name from information_schema.tables "
-            "where table_schema = 'public' and table_type = 'BASE TABLE'"
+            "where table_schema = 'public' and table_type in ('BASE TABLE', 'VIEW')"
         ).fetchall()
     return frozenset(row[0] for row in rows)
 
