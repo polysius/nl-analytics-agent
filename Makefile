@@ -5,7 +5,7 @@ SUBSET ?= 20
 .PHONY: up load-data setup test lint eval eval-all retrieval-eval judge-eval mcp graph-diagram down
 
 up:
-	docker compose up -d postgres
+	docker compose up -d --wait postgres
 
 # Download the f1db PostgreSQL dump, load it, create the read-only role, build the embeddings.
 load-data: up

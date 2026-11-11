@@ -111,9 +111,9 @@ def select_questions(limit: int | None, ids: str | None) -> list[Question]:
         wanted = set(ids.split(","))
         return [q for q in questions if q.id in wanted]
     if limit:
-        # Take every n-th question so a small subset keeps the easy/medium/hard mix.
-        step = max(1, len(questions) // limit)
-        return questions[::step][:limit]
+        # Sample evenly across the whole list so a small subset keeps the easy/medium/hard mix.
+        count = min(limit, len(questions))
+        return [questions[i * len(questions) // count] for i in range(count)]
     return questions
 
 

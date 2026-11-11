@@ -23,7 +23,7 @@ jobs:
 
       - name: Start Postgres and load the F1 data
         run: |
-          docker compose up -d postgres
+          docker compose up -d --wait postgres
           bash scripts/load_data.sh
 
       - name: Cache the embedding models

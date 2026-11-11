@@ -51,6 +51,7 @@ def test_write_statements_are_rejected(sql):
         "SELECT * FROM catalog.columns",
         "WITH pg_tables AS (SELECT 1) SELECT * FROM pg_catalog.pg_tables",
         "WITH columns AS (SELECT 1) SELECT * FROM catalog.columns",
+        "WITH pg_roles AS (SELECT * FROM pg_roles) SELECT * FROM pg_roles",
     ],
 )
 def test_tables_outside_the_allowed_set_are_rejected(sql):

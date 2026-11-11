@@ -66,3 +66,13 @@ def test_gold_columns_resolve_aliases_to_real_tables():
 
     columns = gold_columns(GOLD, load_catalogue())
     assert columns == {"race.year", "race_result.position_number"}
+
+
+def test_limited_subset_covers_every_difficulty():
+    from nlagent.evaluate import select_questions
+
+    subset = select_questions(limit=20, ids=None)
+
+    assert len(subset) == 20
+    assert len({q.id for q in subset}) == 20
+    assert {q.difficulty for q in subset} == {q.difficulty for q in load_questions()}
