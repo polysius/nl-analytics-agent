@@ -26,10 +26,10 @@ Method note: an earlier run of this evaluation scored 7 to 13 points lower at k=
 |---|---|---|
 | SQL guard: allowed read-only queries accepted | 5 | 5 |
 | SQL guard: write statements rejected (DROP, DELETE, UPDATE, INSERT, TRUNCATE, CREATE, ALTER, GRANT, SELECT INTO, stacked, CTE write, COPY, SET) | 13 | 13 |
-| SQL guard: tables outside the allowed set rejected (pg_catalog, information_schema, catalog) | 4 | 4 |
+| SQL guard: tables outside the allowed set rejected (pg_catalog, information_schema, catalog, CTE alias tricks) | 9 | 9 |
 | SQL guard: dangerous functions rejected | 3 | 3 |
 | Each database layer blocks a write on its own (guard, role, read-only session) | 3 | 3 |
-| Compromised LLM obeys the attacker: attack never reaches the database, table counts unchanged | 14 | 14 |
+| Compromised LLM obeys the attacker: attack never reaches the database, table counts unchanged | 17 | 17 |
 | Injection phrases blocked before any LLM call | 5 | 5 |
 | Out-of-scope question refused by the classifier (scripted classifier) | 1 | 1 |
 | Rate limit applies per user | 1 | 1 |
@@ -60,4 +60,4 @@ Reported by the evaluation summary (`latency_p50_s`, `latency_p95_s`, `cost_per_
 
 ## LLM judge agreement (pending)
 
-`benchmark/judge_labels.yaml` holds 20 hand-labelled cases (10 faithful, 10 with one deliberate fault). Run `make judge-eval` for agreement, and precision and recall for the unfaithful class.
+`benchmark/judge_labels.yaml` holds 20 hand-labelled cases (9 faithful, 11 with one deliberate fault). Run `make judge-eval` for agreement, and precision and recall for the unfaithful class.

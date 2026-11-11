@@ -16,6 +16,9 @@ DEFAULT_MAX_DROP = 0.10  # ten percentage points, chosen by the repository owner
 
 
 def check(report: dict, baseline: dict, max_drop: float) -> tuple[bool, str]:
+    baseline_ids = baseline.get("question_ids")
+    if baseline_ids is not None and baseline_ids != [row["id"] for row in report["per_question"]]:
+        return False, "report ran different questions than the baseline; rerun the same subset or rewrite the baseline"
     current = report["summary"]["execution_accuracy"]
     previous = baseline["execution_accuracy"]
     drop = previous - current

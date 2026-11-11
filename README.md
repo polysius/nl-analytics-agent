@@ -13,7 +13,7 @@ The database is [f1db](https://github.com/f1db/f1db), the maintained successor o
 | M2 Retrieval layer | Built and measured. See [RESULTS.md](RESULTS.md) |
 | M3 Observability | Built and unit tested. Langfuse compose file included. Not yet run against a live Langfuse server |
 | M4 Evals in CI | Built. The PR gate needs the `ANTHROPIC_API_KEY` secret and a baseline file to switch on |
-| M5 Guardrails | Built and tested. 14 compromised-LLM attacks and 5 injection phrases all stopped |
+| M5 Guardrails | Built and tested. 17 compromised-LLM attacks and 5 injection phrases all stopped |
 | M6 Failure taxonomy | Classifier built and tested. Counts need benchmark runs, see [FAILURES.md](FAILURES.md) |
 | M7 Multi-agent comparison | Not started (optional in the spec) |
 

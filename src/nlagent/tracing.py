@@ -81,12 +81,17 @@ def emit_trace(run: AgentRun, user_id: str, model: str, client: httpx.Client | N
     events = build_events(run, user_id, model, started_at)
     credentials = f"{os.environ['LANGFUSE_PUBLIC_KEY']}:{os.environ['LANGFUSE_SECRET_KEY']}"
     headers = {"Authorization": "Basic " + base64.b64encode(credentials.encode()).decode()}
+    url = os.environ["LANGFUSE_HOST"].rstrip("/") + "/api/public/ingestion"
     try:
-        http = client or httpx.Client(timeout=5.0)
-        response = http.post(
-            os.environ["LANGFUSE_HOST"].rstrip("/") + "/api/public/ingestion",
-            json={"batch": events}, headers=headers,
-        )
-        response.raise_for_status()
+        if client is not None:
+            _post_events(client, url, events, headers)
+        else:
+            with httpx.Client(timeout=5.0) as http:
+                _post_events(http, url, events, headers)
     except httpx.HTTPError as error:
         logger.warning("Langfuse trace was not sent: %s", error)
+
+
+def _post_events(http: httpx.Client, url: str, events: list[dict], headers: dict[str, str]) -> None:
+    response = http.post(url, json={"batch": events}, headers=headers)
+    response.raise_for_status()
