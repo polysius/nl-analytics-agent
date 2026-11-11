@@ -11,11 +11,19 @@ import sqlglot
 from sqlglot import expressions as exp
 from sqlglot.errors import ParseError
 
-# Functions that read files, sleep, change settings or reach other servers.
+# sqlglot gives common SQL functions (count, sum, round, coalesce, ...) their own node type.
+# Any function it cannot name is "anonymous" and is rejected unless listed here. An allowlist
+# is used because a denylist missed XML helpers that run arbitrary SQL or read system tables.
+ALLOWED_ANONYMOUS_FUNCTIONS = {"percentile_cont", "percentile_disc", "mode"}
+
+# Functions that read files, sleep, change settings or reach other servers. Kept as a second
+# check in case sqlglot ever gives one of these its own node type.
 FORBIDDEN_FUNCTIONS = {
     "pg_sleep", "pg_read_file", "pg_read_binary_file", "pg_ls_dir", "pg_stat_file",
     "set_config", "dblink", "dblink_exec", "lo_import", "lo_export", "pg_terminate_backend",
     "pg_cancel_backend", "current_setting", "query_to_xml", "pg_advisory_lock",
+    "version", "currentversion", "inet_server_addr", "pg_get_userbyid",
+    "table_to_xml", "schema_to_xml", "database_to_xml", "query_to_xml_and_xmlschema",
 }
 
 
@@ -46,6 +54,7 @@ def validate_select(sql: str, allowed_tables: set[str]) -> GuardResult:
 
     _reject_write_nodes(tree)
     _reject_forbidden_functions(tree)
+    _reject_system_cte_names(tree)
     tables = _check_tables(tree, allowed_tables)
     return GuardResult(sql=tree.sql(dialect="postgres"), tables=frozenset(tables))
 
@@ -54,6 +63,7 @@ def _reject_write_nodes(tree: exp.Expression) -> None:
     write_nodes = (
         exp.Insert, exp.Update, exp.Delete, exp.Drop, exp.Create, exp.Alter,
         exp.Command, exp.Merge, exp.Set, exp.Copy, exp.Into, exp.TruncateTable, exp.Grant,
+        exp.Lock,  # SELECT ... FOR UPDATE
     )
     for node in tree.walk():
         if isinstance(node, write_nodes):
@@ -66,8 +76,16 @@ def _reject_forbidden_functions(tree: exp.Expression) -> None:
         if name in FORBIDDEN_FUNCTIONS:
             raise UnsafeSQLError(f"Function {name} is not allowed.")
     for anonymous in tree.find_all(exp.Anonymous):
-        if str(anonymous.this).lower() in FORBIDDEN_FUNCTIONS:
-            raise UnsafeSQLError(f"Function {anonymous.this} is not allowed.")
+        name = str(anonymous.this).lower()
+        if name in FORBIDDEN_FUNCTIONS or name not in ALLOWED_ANONYMOUS_FUNCTIONS:
+            raise UnsafeSQLError(f"Function {name} is not allowed.")
+
+
+def _reject_system_cte_names(tree: exp.Expression) -> None:
+    """A WITH alias such as "PG_ROLES" (quoted, so case-sensitive) can hide the real pg_ table."""
+    for cte in tree.find_all(exp.CTE):
+        if cte.alias_or_name.lower().startswith("pg_"):
+            raise UnsafeSQLError(f"WITH alias {cte.alias_or_name} is not allowed.")
 
 
 def _is_local_cte(table: exp.Table, name: str) -> bool:

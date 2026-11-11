@@ -60,7 +60,7 @@ Requires Docker. Python runs inside a container, which keeps the setup identical
 ```bash
 make up                 # Postgres 16 + pgvector on port 5433
 make load-data          # download f1db, load it, create the read-only role, embed the columns
-make test               # 98 tests, no API key needed
+make test               # no API key needed
 make retrieval-eval     # schema retrieval recall, no API key needed
 ```
 

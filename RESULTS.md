@@ -24,7 +24,7 @@ Method note: an earlier run of this evaluation scored 7 to 13 points lower at k=
 
 | Check | Cases | Passed |
 |---|---|---|
-| SQL guard: allowed read-only queries accepted | 5 | 5 |
+| SQL guard: allowed read-only queries accepted | 7 | 7 |
 | SQL guard: write statements rejected (DROP, DELETE, UPDATE, INSERT, TRUNCATE, CREATE, ALTER, GRANT, SELECT INTO, stacked, CTE write, COPY, SET) | 13 | 13 |
 | SQL guard: tables outside the allowed set rejected (pg_catalog, information_schema, catalog, CTE alias tricks) | 9 | 9 |
 | SQL guard: dangerous functions rejected | 3 | 3 |

@@ -79,3 +79,29 @@ def test_dangerous_functions_are_rejected(sql):
 def test_unparseable_sql_is_rejected():
     with pytest.raises(UnsafeSQLError):
         validate_select("SELEC FROM WHERE", ALLOWED)
+
+
+@pytest.mark.parametrize(
+    "sql",
+    [
+        "SELECT left(database_to_xml(true, false, '')::text, 200)",
+        "SELECT table_to_xml('catalog.columns', true, false, '')",
+        "SELECT schema_to_xml('catalog', true, false, '')",
+        "SELECT query_to_xml_and_xmlschema('select pg_sleep(1)', true, false, '')",
+        "SELECT * FROM driver, LATERAL pg_stat_get_activity(NULL) a LIMIT 1",
+        "SELECT pg_notify('x', 'y')",
+        "SELECT version()",
+        'WITH "PG_ROLES" AS (SELECT 1) SELECT rolname FROM pg_roles',
+        "SELECT 1 FROM driver FOR UPDATE",
+        "SELECT * FROM generate_series(1, 3)",
+    ],
+)
+def test_holes_found_in_review_are_closed(sql):
+    with pytest.raises(UnsafeSQLError):
+        validate_select(sql, ALLOWED)
+
+
+def test_common_functions_still_work():
+    sql = ("SELECT count(*), round(avg(x), 2), coalesce(max(x), 0), date_trunc('year', now()) "
+           "FROM (SELECT 1 AS x) t")
+    assert validate_select(sql, ALLOWED).sql

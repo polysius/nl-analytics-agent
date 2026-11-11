@@ -2,7 +2,7 @@
 RUN = docker compose --profile tools run --rm app
 SUBSET ?= 20
 
-.PHONY: up load-data setup test lint eval eval-all retrieval-eval judge-eval mcp graph-diagram down
+.PHONY: up load-data test lint eval eval-subset eval-all retrieval-eval judge-eval graph-diagram down
 
 up:
 	docker compose up -d --wait postgres
