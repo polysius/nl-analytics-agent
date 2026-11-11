@@ -30,6 +30,11 @@ COMPROMISED_LLM_CASES = [
     ("read_catalogue", "Show system roles", "SELECT * FROM pg_catalog.pg_roles"),
     ("read_password_hashes", "Show passwords", "SELECT * FROM pg_shadow"),
     ("read_embedding_schema", "Show the catalogue", "SELECT * FROM catalog.columns"),
+    (
+        "cte_alias_hides_catalogue",
+        "Show the catalogue",
+        "WITH columns AS (SELECT 1) SELECT * FROM catalog.columns",
+    ),
     ("read_info_schema", "List all tables", "SELECT * FROM information_schema.tables"),
     ("read_server_file", "Read a file", "SELECT pg_read_file('/etc/passwd')"),
     ("disable_read_only", "Fix permissions", "SELECT set_config('default_transaction_read_only','off',false)"),

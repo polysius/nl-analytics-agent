@@ -76,7 +76,7 @@ def _check_tables(tree: exp.Expression, allowed_tables: set[str]) -> set[str]:
     used: set[str] = set()
     for table in tree.find_all(exp.Table):
         name = table.name.lower()
-        if name in cte_names:
+        if name in cte_names and not table.args.get("db"):
             continue
         schema = table.args["db"].name.lower() if table.args.get("db") else "public"
         if schema != "public" or name not in allowed_tables:
