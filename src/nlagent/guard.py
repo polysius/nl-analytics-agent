@@ -70,28 +70,32 @@ def _reject_forbidden_functions(tree: exp.Expression) -> None:
             raise UnsafeSQLError(f"Function {anonymous.this} is not allowed.")
 
 
-def _is_inside_own_cte(table: exp.Table, name: str) -> bool:
-    """True when a non-recursive CTE named `name` contains this reference.
+def _is_local_cte(table: exp.Table, name: str) -> bool:
+    """True when `name` resolves to a WITH alias visible at this reference.
 
-    Postgres resolves such a reference to the real table, not to the CTE itself.
+    A non-recursive CTE sees only the CTEs defined before it; the query body sees all of
+    them. Any other reference resolves to the real table in Postgres.
     """
-    cte = table.find_ancestor(exp.CTE)
-    while cte is not None:
-        with_clause = cte.parent
-        recursive = isinstance(with_clause, exp.With) and with_clause.args.get("recursive")
-        if cte.alias_or_name.lower() == name and not recursive:
+    child: exp.Expression = table
+    node = table.parent
+    while node is not None:
+        if isinstance(node, exp.With):
+            ctes = node.expressions
+            visible = ctes if node.args.get("recursive") else ctes[: ctes.index(child)]
+        else:
+            with_clause = node.args.get("with") or node.args.get("with_")
+            visible = with_clause.expressions if with_clause and child is not with_clause else []
+        if any(cte.alias_or_name.lower() == name for cte in visible):
             return True
-        cte = cte.find_ancestor(exp.CTE)
+        child, node = node, node.parent
     return False
 
 
 def _check_tables(tree: exp.Expression, allowed_tables: set[str]) -> set[str]:
-    # Names defined by WITH clauses are query-local, not real tables.
-    cte_names = {cte.alias_or_name.lower() for cte in tree.find_all(exp.CTE)}
     used: set[str] = set()
     for table in tree.find_all(exp.Table):
         name = table.name.lower()
-        if name in cte_names and not table.args.get("db") and not _is_inside_own_cte(table, name):
+        if not table.args.get("db") and _is_local_cte(table, name):
             continue
         schema = table.args["db"].name.lower() if table.args.get("db") else "public"
         if schema != "public" or name not in allowed_tables:

@@ -10,6 +10,8 @@ ALLOWED = {"driver", "race", "constructor", "race_data"}
     [
         "SELECT full_name FROM driver LIMIT 5",
         "WITH wins AS (SELECT driver_id FROM race_data) SELECT count(*) FROM wins",
+        "WITH a AS (SELECT driver_id FROM race_data), b AS (SELECT * FROM a) SELECT * FROM b",
+        "WITH RECURSIVE r AS (SELECT 1 AS n UNION ALL SELECT n + 1 FROM r WHERE n < 3) SELECT * FROM r",
         "SELECT d.full_name FROM driver d JOIN race_data r ON r.driver_id = d.id",
         "SELECT 1 UNION SELECT 2",
         "SELECT * FROM public.driver",
@@ -52,6 +54,8 @@ def test_write_statements_are_rejected(sql):
         "WITH pg_tables AS (SELECT 1) SELECT * FROM pg_catalog.pg_tables",
         "WITH columns AS (SELECT 1) SELECT * FROM catalog.columns",
         "WITH pg_roles AS (SELECT * FROM pg_roles) SELECT * FROM pg_roles",
+        "WITH a AS (SELECT * FROM pg_roles), pg_roles AS (SELECT 1) SELECT * FROM a",
+        "WITH a AS (SELECT * FROM pg_settings), pg_settings AS (SELECT 1) SELECT * FROM a",
     ],
 )
 def test_tables_outside_the_allowed_set_are_rejected(sql):
