@@ -88,7 +88,11 @@ def run_eval(config_name: str, llm: LLMClient, questions: list[Question], max_co
     runner = make_runner(config_name, llm)
     per_question, spent = [], 0.0
     for question in questions:
-        run = runner(question.question)
+        try:
+            run = runner(question.question)
+        except RuntimeError as exc:
+            # One truncated reply must not abort the whole benchmark; record it as a failed question.
+            run = AgentRun(question=question.question, status="failed", error=str(exc))
         row = score_question(question, run, llm.model)
         per_question.append(row)
         spent += row["cost_usd"]
