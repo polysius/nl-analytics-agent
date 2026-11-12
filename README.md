@@ -110,7 +110,7 @@ For Cursor, add the same command and arguments to `mcp.json`. Tools: `ask_f1` (n
 
 ## CI
 
-`ci.yml` runs lint and the full test suite against a real Postgres on every pull request, using the stub LLM, so it needs no secret. `eval.yml` runs a fixed 20-question subset with a spend cap of $1.00 and fails the check if accuracy falls more than 10 points below `benchmark/ci_baseline.json`. To switch it on: add the `ANTHROPIC_API_KEY` secret, set the repository variable `EVAL_ENABLED=true`, and write the baseline with `python -m nlagent.regression --report reports/pr.json --baseline benchmark/ci_baseline.json --write-baseline`.
+`ci.yml` runs lint and the full test suite against a real Postgres on every pull request, using the stub LLM, so it needs no secret. `eval.yml` runs a fixed 20-question subset with a spend cap of $1.00 and fails the check if accuracy falls more than 10 points below `benchmark/ci_baseline.json` (75%, 15 of 20, measured on `gemini-3-flash-preview`). It calls Google AI Studio's OpenAI-compatible endpoint with the repository secret `GOOGLE_API_KEY`, and runs only when the repository variable `EVAL_ENABLED` is `true`. That variable is currently `false` because the key's prepaid credits ran out. To switch it on, top up the key, set `EVAL_ENABLED=true`, and rewrite the baseline after any intentional change with `python -m nlagent.regression --report reports/pr.json --baseline benchmark/ci_baseline.json --write-baseline`. One question is 5 points on a 20 question subset, so the 10 point threshold tolerates two lost questions and a rerun can cross it by chance.
 
 ## Limitations
 
