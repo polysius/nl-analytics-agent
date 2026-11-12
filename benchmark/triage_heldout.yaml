@@ -1,4 +1,6 @@
-# Fresh classifier cases written after the prompt was tightened and never used to tune it.
+# Fresh classifier cases written after the prompt was tightened. They are not a fully independent
+# test: the prompt's list of database topics mentions tyre suppliers (one case below) and uses
+# "who is the best driver?" and "how many wins?" as examples (also in triage.yaml).
 - question: "In which direction does the Suzuka circuit run?"
   expected: data_question
 - question: "What is Max Verstappen's three-letter abbreviation?"
