@@ -12,7 +12,7 @@ The database is [f1db](https://github.com/f1db/f1db), the maintained successor o
 | M1 LangGraph rebuild | Built and measured. The default graph scores 83.9% against 87.5% for the best baseline, so the acceptance bar is missed by two questions. The graph with hybrid retrieval and no reranker scores 92.9%. Differences are within noise at 56 questions. See [RESULTS.md](RESULTS.md) |
 | M2 Retrieval layer | Built and measured. See [RESULTS.md](RESULTS.md) |
 | M3 Observability | Built and unit tested. Langfuse compose file included. Not yet run against a live Langfuse server |
-| M4 Evals in CI | Built. Judge agreement measured (20 of 20, on an easy label set). The PR gate needs an API key secret, `EVAL_ENABLED=true` and a baseline file to switch on |
+| M4 Evals in CI | Built. Judge agreement measured (20 of 20, on an easy label set). The PR gate has a committed baseline and is off until the Google key has credit (see CI) |
 | M5 Guardrails | Built and tested. 17 compromised-LLM attacks and 5 injection phrases all stopped |
 | M6 Failure taxonomy | Done. Counts per configuration and three worked examples are in [FAILURES.md](FAILURES.md) |
 | M7 Multi-agent comparison | Not started (optional in the spec) |
@@ -110,7 +110,7 @@ For Cursor, add the same command and arguments to `mcp.json`. Tools: `ask_f1` (n
 
 ## CI
 
-`ci.yml` runs lint and the full test suite against a real Postgres on every pull request, using the stub LLM, so it needs no secret. `eval.yml` runs a fixed 20-question subset with a spend cap of $1.00 and fails the check if accuracy falls more than 10 points below `benchmark/ci_baseline.json`. To switch it on: add the `ANTHROPIC_API_KEY` secret, set the repository variable `EVAL_ENABLED=true`, and write the baseline with `python -m nlagent.regression --report reports/pr.json --baseline benchmark/ci_baseline.json --write-baseline`.
+`ci.yml` runs lint and the full test suite against a real Postgres on every pull request, using the stub LLM, so it needs no secret. `eval.yml` runs a fixed 20-question subset with a spend cap of $1.00 and fails the check if accuracy falls more than 10 points below `benchmark/ci_baseline.json` (75%, 15 of 20, measured on `gemini-3-flash-preview`). It calls Google AI Studio's OpenAI-compatible endpoint with the repository secret `GOOGLE_API_KEY`, and runs only when the repository variable `EVAL_ENABLED` is `true`. That variable is currently `false` because the key's prepaid credits ran out. To switch it on, top up the key, set `EVAL_ENABLED=true`, and rewrite the baseline after any intentional change with `python -m nlagent.regression --report reports/pr.json --baseline benchmark/ci_baseline.json --write-baseline`. One question is 5 points on a 20 question subset, so the 10 point threshold tolerates two lost questions and a rerun can cross it by chance.
 
 ## Limitations
 
