@@ -36,7 +36,7 @@ Method note: an earlier run of this evaluation scored 7 to 13 points lower at k=
 
 These are deterministic tests, so the pass rate is 100% by construction wherever the layers work, and a failure would show up as a red test. They do not measure how well the real classifier refuses out-of-scope questions or how often the real model complies with an injection. Running an adversarial question set through `Agent` with a real LLM is not done yet.
 
-## Execution accuracy by configuration (measured)
+## Execution accuracy by configuration (measured, Gemini)
 
 Model: `gemini-3-flash-preview` through Google's OpenAI-compatible endpoint, temperature 0, one run per configuration over all 56 questions. Reports are in `reports/<config>.json`. One question is worth 1.8 points, and a 95% interval on a score near 85% over 56 questions is roughly plus or minus 9 points. Treat gaps smaller than that as noise.
 
@@ -57,7 +57,7 @@ What this shows:
 - The full schema in the prompt matches the best retrieved configuration. A 699 column schema fits easily in this model's context, so retrieval earns its keep on cost and latency rather than accuracy: `full_schema` costs about $0.009 per question against about $0.006 for `retrieved_fewshot`.
 - Differences between configurations are mostly within noise. I ran each once, so run to run variation at temperature 0 is not measured.
 
-## Retrieval mode vs end-to-end accuracy (measured)
+## Retrieval mode vs end-to-end accuracy (measured, Gemini)
 
 | Graph retrieval | recall@25 (columns) | Execution accuracy |
 |---|---|---|
@@ -67,7 +67,7 @@ What this shows:
 
 Hybrid beats vector on both measures, in the same order for recall and for accuracy. The reranker does not beat hybrid on either. Recall below 0.55 still produced 84 to 93% accuracy because the prompt adds join keys and the model often needs only a few of the columns the metric counts.
 
-## Latency and cost per query (measured)
+## Latency and cost per query (measured, Gemini)
 
 | Config | p50 | p95 | Cost per question |
 |---|---|---|---|
@@ -79,12 +79,50 @@ Hybrid beats vector on both measures, in the same order for recall and for accur
 
 Latency includes waiting on a shared API with retries, so treat it as a rough guide. The `retrieved` run had a p50 of 19 s because part of it ran under rate limiting, so it is left out of the table. Cost uses an estimated price of $0.50 per million input tokens and $3.00 per million output tokens (including thinking tokens). That price is my assumption, not Google's published rate. Check the Google billing page for actual spend.
 
-## LLM judge agreement (measured)
+## LLM judge agreement (measured, Gemini as judge)
 
 20 hand-labelled cases (9 faithful, 11 with one deliberate fault). The judge matched the label on 20 of 20, with unfaithful precision 1.0 and recall 1.0. The cases were written with clear faults, so this is an easy test. A harder set with subtle unsupported claims would be needed to say much about the judge. An earlier run scored 90% while replies were being truncated by the token limit.
+
+## Second model: Claude Sonnet through the Claude Code CLI (measured)
+
+The Gemini key ran out of credit, so the same seven configurations were rerun on Claude Sonnet (`claude-sonnet-5-5`) through the local Claude Code CLI, using `scripts/claude_cli_bridge.py`. Same 56 questions, one run each, reports in `reports/sonnet/`. The CLI has no temperature setting, so these runs are not deterministic. `full_schema` hit its spend cap at 50 questions, so its last six were run separately and merged.
+
+| Config | Correct | Overall | Easy (20) | Medium (24) | Hard (12) |
+|---|---|---|---|---|---|
+| full_schema (all 699 columns) | 50 | 89.3% | 100% | 92% | 67% |
+| retrieved (vector top 25) | 34 | 60.7% | 80% | 62% | 25% |
+| retrieved_fewshot | 51 | 91.1% | 100% | 88% | 83% |
+| retrieved_fewshot_repair | 51 | 91.1% | 100% | 88% | 83% |
+| graph, vector retrieval | 52 | 92.9% | 95% | 88% | 100% |
+| graph, hybrid retrieval | 49 | 87.5% | 80% | 92% | 92% |
+| graph, hybrid + rerank (the default `graph`) | 50 | 89.3% | 90% | 92% | 83% |
+
+| Config | p50 | p95 | Cost per question (list price) |
+|---|---|---|---|
+| full_schema (all 699 columns) | 2.8 s | 3.7 s | $0.0409 |
+| retrieved (vector top 25) | 3.8 s | 6.5 s | $0.0088 |
+| retrieved_fewshot | 2.8 s | 4.8 s | $0.0074 |
+| retrieved_fewshot_repair | 2.7 s | 4.3 s | $0.0072 |
+| graph, vector retrieval | 7.6 s | 9.8 s | $0.0128 |
+| graph, hybrid retrieval | 7.8 s | 10.2 s | $0.0131 |
+| graph, hybrid + rerank (the default `graph`) | 9.5 s | 11.4 s | $0.0125 |
+
+Cost is the list-price equivalent. These calls ran on a Claude Code plan, so no card was charged. Latency here is much steadier than the Gemini runs because the CLI is a dedicated local call, not a shared free-tier endpoint.
+
+What the two models agree on:
+
+- **Few-shot examples matter most.** On the baseline with vector retrieval, adding them moves Sonnet from 60.7% to 91.1% and Gemini from 76.8% to 87.5%.
+- **The repair loop adds nothing here.** Sonnet scores 51/56 with and without it. Gemini scored 49 without and 47 with.
+- **The default graph again misses the baseline target by one or two questions.** Sonnet: 50 against 51 for the best baselines. Gemini: 47 against 49. The graph with vector retrieval scored highest on Sonnet (52/56), and the one with hybrid retrieval scored highest on Gemini (52/56). Across both models the graph variants land between 47 and 52, which is noise at this sample size. There is no evidence that the reranker or the hybrid search improves end-to-end accuracy, even though hybrid search clearly improves retrieval recall.
+- **A long prompt is not a problem for these models.** `full_schema` matches the best retrieved configuration on both, at about five times the cost per question on Sonnet ($0.041 against $0.0074).
+
+Where they differ: Sonnet's misses are mostly about the shape of the answer under strict scoring. Two returned an extra column (q50, q52), one returned an id instead of a name (q08), and one used a different view than the gold query (q33). The classifier also wrongly refused one plain data question (q20), which is a real defect in the graph and is listed in FAILURES.md. Only q34 failed on both models.
+
+The LLM judge was not rerun on Sonnet.
 
 ## Method notes
 
 - **Truncation bug found and fixed.** The first full run scored 52 to 68% because Gemini's hidden thinking tokens counted against `max_tokens`, cutting answers off mid-word (`race_`, `sd.driver_`). The client now adds 4,096 tokens of headroom and raises an error if a reply is still cut off. Cost is now counted from total tokens, which includes thinking. The truncated reports are kept locally in `reports/old_truncated/` (not committed) and are not used in any table.
 - **Spend caps ended two runs early.** `retrieved` and `retrieved_fewshot` hit their caps after 33 and 54 questions. I ran only the missing questions and merged them (`scripts/merge_reports.py`), so every row above covers all 56 questions.
+- **Bridge runs.** The first Sonnet attempt launched three evaluations at once and every call failed with an empty error, so the runs were redone one at a time. The bridge now reports the CLI's real error text.
 - **Model choice.** `gemini-3.8-flash` returned 503 under load and `gemini-2.5-flash` is closed to new keys, so these results are from `gemini-3-flash-preview`. Numbers will differ on another model.

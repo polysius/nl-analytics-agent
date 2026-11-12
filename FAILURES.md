@@ -13,7 +13,7 @@ Every benchmark question answered incorrectly is assigned one class by `failures
 
 The rules are heuristics over SQL structure. A query can fail for two reasons at once and gets the first matching class in the order above. The counts track movement between milestones. They are not a substitute for reading examples.
 
-## Counts per configuration (measured)
+## Counts per configuration (measured, Gemini)
 
 Failures per class over the 56 benchmark questions, from `reports/<config>.json`, one run each. No question was classed `ambiguity`: the baselines never ask for clarification, and the classifier did not ask on any benchmark question.
 
@@ -48,3 +48,27 @@ All three come from the default `graph` run.
 - Gold counts distinct drivers in race results for 2010 (27).
 - Predicted: `SELECT count(*) FROM season_driver WHERE year = 2010`.
 - The model counted drivers registered for the season rather than drivers who appeared in a race. The question is ambiguous and the prediction is a reasonable reading, so this is arguably a benchmark question that needs rewording, not a model error. q25 (pole counted from qualifying position 1 rather than the `pole_position` flag) and q48 (grid position 1 rather than `pole_position`) are the same kind of case. Three of the nine failures may be a benchmark problem, which a second reviewer should settle.
+
+## Second model: Claude Sonnet (measured)
+
+Same classifier, same 56 questions, runs in `reports/sonnet/`. Counts are for one run each.
+
+| Stage | Failures | hallucinated_column | wrong_join | aggregation_error | wrong_filter | other |
+|---|---|---|---|---|---|---|
+| full_schema (all 699 columns) | 6 | 0 | 0 | 0 | 2 | 4 |
+| retrieved (vector top 25) | 22 | 2 | 11 | 0 | 1 | 8 |
+| retrieved_fewshot | 5 | 0 | 4 | 0 | 0 | 1 |
+| retrieved_fewshot_repair | 5 | 0 | 4 | 0 | 0 | 1 |
+| graph, vector retrieval | 4 | 0 | 3 | 0 | 0 | 1 |
+| graph, hybrid retrieval | 7 | 0 | 1 | 0 | 2 | 4 |
+| graph, hybrid + rerank (default) | 6 | 0 | 2 | 0 | 1 | 3 |
+
+The default graph's six misses on Sonnet, read one by one:
+
+- **q08** returned `id` where the gold returns `name`. The answer is probably the right person, but the result set differs.
+- **q50 and q52** added a column (`points`, `wins`). The result contains the gold answer plus more, and strict row equality counts it wrong. Whether that should count as wrong is a scoring policy decision, not a model failure.
+- **q33** counted rows in the `fastest_lap` view, which has one row per driver per race for every driver who set a lap, instead of the `fastest_lap` flag in race results. The question is easy to misread, so a clearer wording is worth considering.
+- **q34** counted countries through the Grand Prix instead of through the circuit. Gemini made the same choice, so it is the only question both models missed. The country on a Grand Prix and the country of the circuit it uses can differ, so the question probably needs rewording.
+- **q20** ("How many turns does the Monza circuit have?") was refused by the intent classifier as out of scope. This is a genuine agent defect: the classifier is rejecting a plain question about the data. It cost one question here, and it would cost users more than the benchmark shows. Not fixed yet. A first step would be to tell the classifier that circuit attributes are in scope and to default to answering when unsure.
+
+Taken with the Gemini results, a good share of the remaining misses across both models come from the benchmark and the scoring rule, not the models. A second reviewer should settle q25, q33, q34, q43 and q48, and the scoring could accept a result that contains the gold columns plus extras.
