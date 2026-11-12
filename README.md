@@ -1,6 +1,6 @@
 # nl-analytics-agent
 
-A text-to-SQL agent over Formula 1 data, built as a production-style system rather than a notebook: a LangGraph state machine, hybrid schema retrieval in pgvector, three independent layers that keep the database read-only, Langfuse tracing, a benchmark with an accuracy gate in CI, and an adversarial test suite. It is exposed as an MCP server for Claude Code and Cursor.
+A text-to-SQL agent over Formula 1 data, built as a production-style system rather than a notebook: a LangGraph state machine, hybrid schema retrieval in pgvector, three independent layers that keep the database read-only, Langfuse tracing, a benchmark with a local accuracy gate, and an adversarial test suite. It is exposed as an MCP server for Claude Code and Cursor.
 
 The database is [f1db](https://github.com/f1db/f1db), the maintained successor of the Ergast F1 dataset: 31 tables, 17 views, 699 columns, 1,172 races from 1950 to 2026. Its `race_data` table holds every kind of per-driver result in one wide table keyed by a `type` column, which makes schema retrieval a real problem rather than a toy one.
 
@@ -11,8 +11,8 @@ The database is [f1db](https://github.com/f1db/f1db), the maintained successor o
 | Read-only safety, MCP server, benchmark, four baseline configs | Built and tested |
 | M1 LangGraph rebuild | Built and measured on two models. The default graph misses the "match the best baseline" bar by two questions on Gemini (83.9% vs 87.5%) and one on Sonnet (89.3% vs 91.1%). Differences between graph variants are within noise at 56 questions. See [RESULTS.md](RESULTS.md) |
 | M2 Retrieval layer | Built and measured. See [RESULTS.md](RESULTS.md) |
-| M3 Observability | Built and unit tested. Langfuse compose file included. Not yet run against a live Langfuse server |
-| M4 Evals in CI | Built. Judge agreement measured (20 of 20, on an easy label set). The PR gate has a committed baseline and is off until the Google key has credit (see CI) |
+| M3 Observability | Done. A 10-question benchmark run was traced into a local Langfuse 4 server and read back: every node, with tokens and cost. See [RESULTS.md](RESULTS.md) |
+| M4 Evals in CI | Accuracy gate built and shown to fail on a broken prompt (85% baseline, a sabotaged prompt scores 40% and exits 1). It runs locally through the Claude Code bridge, not in GitHub Actions. Judge agreement is measured on an easy label set |
 | M5 Guardrails | Built and tested. 17 compromised-LLM attacks and 5 injection phrases all stopped |
 | M6 Failure taxonomy | Done. Counts per configuration and three worked examples are in [FAILURES.md](FAILURES.md) |
 | M7 Multi-agent comparison | Not started (optional in the spec) |
@@ -99,7 +99,7 @@ cp .env.example .env
 docker compose up -d      # UI on http://localhost:3000
 ```
 
-Then export `LANGFUSE_HOST=http://localhost:3000`, `LANGFUSE_PUBLIC_KEY=pk-lf-f1-agent-local` and `LANGFUSE_SECRET_KEY=sk-lf-f1-agent-local`. Each question becomes one trace with a span per node; LLM nodes are recorded as generations with tokens and cost. Tracing is best effort: if Langfuse is down the answer still returns. `observability/langfuse/docker-compose.yml` is the upstream Langfuse file with only the init keys supplied through `.env`.
+Then export `LANGFUSE_HOST=http://localhost:3000`, `LANGFUSE_PUBLIC_KEY=pk-lf-f1-agent-local` and `LANGFUSE_SECRET_KEY=sk-lf-f1-agent-local`. Traces go over OpenTelemetry (Langfuse 4 does not store events from the older ingestion endpoint). Each question becomes one trace with a span per node; LLM nodes are recorded as generations with tokens and cost. Tracing is best effort: if Langfuse is down the answer still returns. `observability/langfuse/docker-compose.yml` is the upstream Langfuse file with only the init keys supplied through `.env`.
 
 ## Use it from Claude Code or Cursor
 
@@ -110,9 +110,13 @@ claude mcp add f1-analytics -- docker compose -f /path/to/nl-analytics-agent/doc
 
 For Cursor, add the same command and arguments to `mcp.json`. Tools: `ask_f1` (needs a key), `run_sql` and `describe_schema` (no key needed).
 
-## CI
+## CI and the accuracy gate
 
-`ci.yml` runs lint and the full test suite against a real Postgres on every pull request, using the stub LLM, so it needs no secret. `eval.yml` runs a fixed 20-question subset with a spend cap of $1.00 and fails the check if accuracy falls more than 10 points below `benchmark/ci_baseline.json` (75%, 15 of 20, measured on `gemini-3-flash-preview`). It calls Google AI Studio's OpenAI-compatible endpoint with the repository secret `GOOGLE_API_KEY`, and runs only when the repository variable `EVAL_ENABLED` is `true`. That variable is currently `false` because the key's prepaid credits ran out. To switch it on, top up the key, set `EVAL_ENABLED=true`, and rewrite the baseline after any intentional change with `python -m nlagent.regression --report reports/pr.json --baseline benchmark/ci_baseline.json --write-baseline`. One question is 5 points on a 20 question subset, so the 10 point threshold tolerates two lost questions and a rerun can cross it by chance.
+`ci.yml` runs lint and the full test suite against a real Postgres on every pull request, using the stub LLM, so it needs no secret.
+
+The accuracy gate runs locally, not in GitHub, because the model is the Claude Code CLI on your machine (`scripts/claude_cli_bridge.py`) and GitHub's runners cannot reach it. Start the bridge, then run `make eval-subset`. It scores a fixed 20-question subset and exits with an error if accuracy falls more than 10 points below `benchmark/ci_baseline.json` (85%, 17 of 20, measured on Sonnet). After an intentional change, rewrite the baseline with `make gate-baseline`. `scripts/demo_broken_prompt.py` shows the gate failing on a sabotaged prompt, and RESULTS.md has the measured outcome.
+
+One question is 5 points on a 20-question subset and the CLI has no temperature setting, so an unchanged branch can move by a question or two between runs. Treat a failure as a prompt to look, not as proof of a regression. To move the gate back into GitHub Actions, run it on a self-hosted runner next to the bridge, or point it at a hosted API key.
 
 ## Limitations
 
@@ -120,3 +124,13 @@ For Cursor, add the same command and arguments to `mcp.json`. Tools: `ask_f1` (n
 - The failure classifier is rule-based on SQL structure and will mislabel some cases. FAILURES.md is meant to be read with the examples.
 - The input guard is a phrase filter and is easy to rephrase around. It is a cheap first filter. The read-only layers are the real boundary.
 - The rate limiter keeps state in memory, so it applies per process.
+
+## Known gaps
+
+- Most remaining benchmark failures come from the model not knowing how values are stored (for example `'Female'` against `'FEMALE'`). Adding example values for text columns to the schema is the likeliest fix and has not been tried.
+- Five benchmark questions (q25, q33, q34, q43, q48) have a defensible alternative answer and need a second reviewer. Scoring also counts an extra column as wrong, which is a policy choice worth revisiting.
+- The LLM judge was tested only on 20 cases with obvious faults, and only on Gemini.
+- The adversarial suite proves that a fully compromised model cannot reach the database. It has not been run against a real model to see how often one complies with an injection.
+- The accuracy gate runs locally through the Claude Code bridge, not in GitHub Actions.
+- The optional multi-agent comparison (M7) was not built.
+

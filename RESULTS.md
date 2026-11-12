@@ -133,6 +133,37 @@ The fix rewrote `CLASSIFY_SYSTEM`: it now lists what the database covers, says t
 
 Three caveats. The first rewrite named the failing questions' own topics, so it was partly tuned to the benchmark. I replaced those examples with a circuit's length and a constructor's nationality, which also appear in the 80 case set, so that set is not independent of the prompt. The 20 questions in `benchmark/triage_heldout.yaml` do not overlap those two examples, but they are not fully independent either: the prompt's topic list names tyre suppliers, which matches the held-out question about the 1980 tyre manufacturer, and two other prompt examples ("who is the best driver?", "how many wins?") also appear in the 80 case set. That is where the "before" prompt wrongly refused 3 of 10 data questions and the "after" prompt refused none. An earlier version of the prompt used examples that did overlap two held-out questions. I caught it in review, changed the examples, and remeasured, and the result was the same. I did see the held-out results before finalising, though I changed nothing in response to them. Second, the new prompt is more willing to answer: it answered "Compare Hamilton and Verstappen." instead of asking what to compare, which was the one held-out miss. That is the intended trade, but it means some under-specified questions get a default reading. Twenty held-out cases is small, and each case was run once. A full graph run on q11 and q20 after the fix, recorded in `reports/sonnet/classifier_fix_e2e.json`, answered both correctly.
 
+## Langfuse tracing (measured, Claude Sonnet)
+
+Langfuse 4.78 ran locally from `observability/langfuse/docker-compose.yml`. Ten benchmark questions (`--limit 10`) were run through the graph with tracing on. The report is `reports/sonnet/langfuse_run.json`.
+
+Reading the traces back through Langfuse's API after the run (11 traces, because one earlier single question was also sent):
+
+| What Langfuse holds | Count |
+|---|---|
+| Traces (one per question) | 11 |
+| Observations in total | 66 |
+| Per question | 1 root span, `retrieve` span, `execute` span, and `classify`, `generate`, `synthesise` generations |
+| Generations with model, input tokens, output tokens and cost | all 33 |
+
+The token and cost totals in Langfuse (40,194 input, 1,780 output, $0.147 at list price) match the evaluation report for the same questions. No node recorded an error in this run, so the error-level display is covered by a unit test but was not seen live.
+
+Latency and cost per query for those ten questions: p50 9.8 s, p95 14.1 s, $0.0135 per question at list price. The full 56-question figures are in the Sonnet table above.
+
+**A bug this exposed.** The first version of the tracer sent events to Langfuse's legacy `/api/public/ingestion` endpoint. Langfuse 4 accepts the request but drops the events, and its log says "These events were not stored". The unit tests passed because they used a mocked server. The tracer now sends OpenTelemetry (OTLP over HTTP/JSON) to `/api/public/otel/v1/traces`, which was checked against the live server as above.
+
+## Accuracy gate demonstration (measured, Claude Sonnet)
+
+The gate scores a fixed 20-question subset of the benchmark and compares it with `benchmark/ci_baseline.json`. The baseline is 85% (17 of 20). Reports are in `reports/sonnet/`.
+
+| Run | Accuracy | Gate result |
+|---|---|---|
+| Baseline run | 85% | baseline written |
+| Rerun with no change | 80% (16 of 20) | PASS, drop of 5 points against 10 allowed |
+| Deliberately broken SQL prompt (`scripts/demo_broken_prompt.py`) | 40% (8 of 20) | FAIL, drop of 45 points, exit code 1 |
+
+The gate catches a broken prompt. The unchanged rerun lost a question on its own, which shows the noise the threshold has to absorb. The broken prompt still scored 40% rather than near zero: it only replaced the instruction text, and the question and schema in the user message were enough for the model to write valid SQL for some questions anyway.
+
 ## Method notes
 
 - **Truncation bug found and fixed.** The first full run scored 52 to 68% because Gemini's hidden thinking tokens counted against `max_tokens`, cutting answers off mid-word (`race_`, `sd.driver_`). The client now adds 4,096 tokens of headroom and raises an error if a reply is still cut off. Cost is now counted from total tokens, which includes thinking. The truncated reports are kept locally in `reports/old_truncated/` (not committed) and are not used in any table.
