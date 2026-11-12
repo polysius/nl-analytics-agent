@@ -5,4 +5,5 @@ __pycache__/
 .ruff_cache/
 data/raw/
 reports/old_truncated/
+reports/pr.json
 .env
