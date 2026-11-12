@@ -1,6 +1,6 @@
 # nl-analytics-agent
 
-A text-to-SQL agent over Formula 1 data, built as a production-style system rather than a notebook: a LangGraph state machine, hybrid schema retrieval in pgvector, three independent layers that keep the database read-only, Langfuse tracing, a benchmark with an accuracy gate in CI, and an adversarial test suite. It is exposed as an MCP server for Claude Code and Cursor.
+A text-to-SQL agent over Formula 1 data, built as a production-style system rather than a notebook: a LangGraph state machine, hybrid schema retrieval in pgvector, three independent layers that keep the database read-only, Langfuse tracing, a benchmark with a local accuracy gate, and an adversarial test suite. It is exposed as an MCP server for Claude Code and Cursor.
 
 The database is [f1db](https://github.com/f1db/f1db), the maintained successor of the Ergast F1 dataset: 31 tables, 17 views, 699 columns, 1,172 races from 1950 to 2026. Its `race_data` table holds every kind of per-driver result in one wide table keyed by a `type` column, which makes schema retrieval a real problem rather than a toy one.
 
