@@ -39,6 +39,15 @@ def estimate_cost(model: str, input_tokens: int, output_tokens: int) -> float:
 REASONING_HEADROOM_TOKENS = 4096
 
 
+class ReplyTruncatedError(RuntimeError):
+    """The model hit the token limit. Carries the tokens already billed for the call."""
+
+    def __init__(self, input_tokens: int, output_tokens: int):
+        super().__init__("LLM reply was cut off by the token limit; raise REASONING_HEADROOM_TOKENS.")
+        self.input_tokens = input_tokens
+        self.output_tokens = output_tokens
+
+
 class AnthropicClient:
     def __init__(self, model: str, api_key: str):
         import anthropic
@@ -90,11 +99,11 @@ class OpenAICompatClient:
         )
         usage = completion.usage
         choice = completion.choices[0]
-        if choice.finish_reason == "length":
-            raise RuntimeError("LLM reply was cut off by the token limit; raise REASONING_HEADROOM_TOKENS.")
         input_tokens = usage.prompt_tokens if usage else 0
         # total minus prompt also counts thinking tokens, which are billed as output.
         output_tokens = (usage.total_tokens - usage.prompt_tokens) if usage else 0
+        if choice.finish_reason == "length":
+            raise ReplyTruncatedError(input_tokens, output_tokens)
         return LLMResponse(
             text=choice.message.content or "",
             input_tokens=input_tokens,

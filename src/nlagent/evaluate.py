@@ -17,7 +17,7 @@ from nlagent.benchmark import Question, load_questions, results_match
 from nlagent.db import run_query
 from nlagent.failures import classify_failure
 from nlagent.graph import GraphConfig, build_graph, run_graph
-from nlagent.llm import LLMClient, estimate_cost, get_llm
+from nlagent.llm import LLMClient, ReplyTruncatedError, estimate_cost, get_llm
 from nlagent.runs import AgentRun
 
 GRAPH_CONFIGS = {
@@ -90,9 +90,11 @@ def run_eval(config_name: str, llm: LLMClient, questions: list[Question], max_co
     for question in questions:
         try:
             run = runner(question.question)
-        except RuntimeError as exc:
+        except ReplyTruncatedError as exc:
             # One truncated reply must not abort the whole benchmark; record it as a failed question.
             run = AgentRun(question=question.question, status="failed", error=str(exc))
+            run.usage.input_tokens = exc.input_tokens
+            run.usage.output_tokens = exc.output_tokens
         row = score_question(question, run, llm.model)
         per_question.append(row)
         spent += row["cost_usd"]
