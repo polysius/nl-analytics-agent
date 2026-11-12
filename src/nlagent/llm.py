@@ -26,12 +26,26 @@ PRICE_PER_MTOK = {
     "claude-sonnet-5-5": (3.0, 15.0),
     "claude-haiku-5-5": (1.0, 5.0),
     "claude-opus-5-5": (5.0, 25.0),
+    # Estimate used only to enforce spend caps. Check Google's price page for the real rate.
+    "gemini-3-flash-preview": (0.50, 3.00),
 }
 
 
 def estimate_cost(model: str, input_tokens: int, output_tokens: int) -> float:
     price_in, price_out = PRICE_PER_MTOK.get(model, (0.0, 0.0))
     return (input_tokens * price_in + output_tokens * price_out) / 1_000_000
+
+
+REASONING_HEADROOM_TOKENS = 4096
+
+
+class ReplyTruncatedError(RuntimeError):
+    """The model hit the token limit. Carries the tokens already billed for the call."""
+
+    def __init__(self, input_tokens: int, output_tokens: int):
+        super().__init__("LLM reply was cut off by the token limit; raise REASONING_HEADROOM_TOKENS.")
+        self.input_tokens = input_tokens
+        self.output_tokens = output_tokens
 
 
 class AnthropicClient:
@@ -66,21 +80,34 @@ class OpenAICompatClient:
         import openai
 
         self.model = model
-        self._client = openai.OpenAI(api_key=api_key or "unused", base_url=base_url or None)
+        self._client = openai.OpenAI(
+            api_key=api_key or "unused",
+            base_url=base_url or None,
+            max_retries=8,  # free-tier endpoints often answer 429 or 503 under load
+            timeout=60,
+        )
 
     def complete(self, system: str, user: str, max_tokens: int = 1024) -> LLMResponse:
         started = time.perf_counter()
         completion = self._client.chat.completions.create(
             model=self.model,
-            max_tokens=max_tokens,
+            # Reasoning models spend hidden "thinking" tokens from this same budget, so a tight
+            # limit cuts the visible answer off mid-word. Add headroom for the thinking.
+            max_tokens=max_tokens + REASONING_HEADROOM_TOKENS,
             temperature=0,
             messages=[{"role": "system", "content": system}, {"role": "user", "content": user}],
         )
         usage = completion.usage
+        choice = completion.choices[0]
+        input_tokens = usage.prompt_tokens if usage else 0
+        # total minus prompt also counts thinking tokens, which are billed as output.
+        output_tokens = (usage.total_tokens - usage.prompt_tokens) if usage else 0
+        if choice.finish_reason == "length":
+            raise ReplyTruncatedError(input_tokens, output_tokens)
         return LLMResponse(
-            text=completion.choices[0].message.content or "",
-            input_tokens=usage.prompt_tokens if usage else 0,
-            output_tokens=usage.completion_tokens if usage else 0,
+            text=choice.message.content or "",
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
             latency_s=time.perf_counter() - started,
         )
 

@@ -4,6 +4,6 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 data/raw/
-reports/*.json
-!reports/baseline/*.json
+reports/old_truncated/
+reports/pr.json
 .env

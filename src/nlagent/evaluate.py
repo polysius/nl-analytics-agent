@@ -17,7 +17,7 @@ from nlagent.benchmark import Question, load_questions, results_match
 from nlagent.db import run_query
 from nlagent.failures import classify_failure
 from nlagent.graph import GraphConfig, build_graph, run_graph
-from nlagent.llm import LLMClient, estimate_cost, get_llm
+from nlagent.llm import LLMClient, ReplyTruncatedError, estimate_cost, get_llm
 from nlagent.runs import AgentRun
 
 GRAPH_CONFIGS = {
@@ -27,6 +27,30 @@ GRAPH_CONFIGS = {
     "graph_no_classify": GraphConfig(retrieval="hybrid_rerank", classify=False),
 }
 ALL_CONFIGS = [*BASELINE_CONFIGS, *GRAPH_CONFIGS]
+
+
+class TokenTally:
+    """Wraps an LLM client and counts every billed token, including calls that end in an exception."""
+
+    def __init__(self, llm: LLMClient):
+        self._llm = llm
+        self.model = llm.model
+        self.input_tokens = 0
+        self.output_tokens = 0
+
+    def reset(self) -> None:
+        self.input_tokens = self.output_tokens = 0
+
+    def complete(self, system: str, user: str, max_tokens: int = 1024):
+        try:
+            response = self._llm.complete(system, user, max_tokens)
+        except ReplyTruncatedError as exc:
+            self.input_tokens += exc.input_tokens
+            self.output_tokens += exc.output_tokens
+            raise
+        self.input_tokens += response.input_tokens
+        self.output_tokens += response.output_tokens
+        return response
 
 
 def make_runner(config_name: str, llm: LLMClient):
@@ -85,10 +109,18 @@ def summarise(per_question: list[dict]) -> dict:
 
 
 def run_eval(config_name: str, llm: LLMClient, questions: list[Question], max_cost_usd: float | None) -> dict:
-    runner = make_runner(config_name, llm)
+    tally = TokenTally(llm)
+    runner = make_runner(config_name, tally)
     per_question, spent = [], 0.0
     for question in questions:
-        run = runner(question.question)
+        tally.reset()
+        try:
+            run = runner(question.question)
+        except ReplyTruncatedError as exc:
+            # One truncated reply must not abort the whole benchmark; record it as a failed question.
+            run = AgentRun(question=question.question, status="failed", error=str(exc))
+            run.usage.input_tokens = tally.input_tokens
+            run.usage.output_tokens = tally.output_tokens
         row = score_question(question, run, llm.model)
         per_question.append(row)
         spent += row["cost_usd"]

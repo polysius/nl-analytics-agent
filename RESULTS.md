@@ -1,6 +1,6 @@
 # Results
 
-Only measured numbers appear here. Sections that need an LLM are marked pending and name the command that fills them in.
+Only measured numbers appear here.
 
 ## Schema retrieval (measured)
 
@@ -34,30 +34,57 @@ Method note: an earlier run of this evaluation scored 7 to 13 points lower at k=
 | Out-of-scope question refused by the classifier (scripted classifier) | 1 | 1 |
 | Rate limit applies per user | 1 | 1 |
 
-These are deterministic tests, so the pass rate is 100% by construction wherever the layers work, and a failure would show up as a red test. They do not measure how well the real classifier refuses out-of-scope questions or how often the real model complies with an injection. That needs an API key: pending, run the adversarial question set through `Agent` with a real LLM.
+These are deterministic tests, so the pass rate is 100% by construction wherever the layers work, and a failure would show up as a red test. They do not measure how well the real classifier refuses out-of-scope questions or how often the real model complies with an injection. Running an adversarial question set through `Agent` with a real LLM is not done yet.
 
-## Execution accuracy by configuration (pending)
+## Execution accuracy by configuration (measured)
 
-Needs `ANTHROPIC_API_KEY`. Run `make eval-all`; reports land in `reports/<config>.json`.
+Model: `gemini-3-flash-preview` through Google's OpenAI-compatible endpoint, temperature 0, one run per configuration over all 56 questions. Reports are in `reports/<config>.json`. One question is worth 1.8 points, and a 95% interval on a score near 85% over 56 questions is roughly plus or minus 9 points. Treat gaps smaller than that as noise.
 
-| Config | Overall | Easy | Medium | Hard |
-|---|---|---|---|---|
-| full_schema | pending | pending | pending | pending |
-| retrieved | pending | pending | pending | pending |
-| retrieved_fewshot | pending | pending | pending | pending |
-| retrieved_fewshot_repair | pending | pending | pending | pending |
-| graph | pending | pending | pending | pending |
+| Config | Correct | Overall | Easy (20) | Medium (24) | Hard (12) |
+|---|---|---|---|---|---|
+| full_schema (all 699 columns) | 49 | 87.5% | 90% | 83% | 92% |
+| retrieved (vector top 25) | 43 | 76.8% | 90% | 71% | 67% |
+| retrieved_fewshot | 49 | 87.5% | 95% | 79% | 92% |
+| retrieved_fewshot_repair | 47 | 83.9% | 95% | 75% | 83% |
+| graph, vector retrieval | 48 | 85.7% | 95% | 75% | 92% |
+| graph, hybrid retrieval | 52 | 92.9% | 95% | 92% | 92% |
+| graph, hybrid + rerank (the default `graph`) | 47 | 83.9% | 95% | 71% | 92% |
 
-Acceptance for M1: `graph` is equal to or better than the best baseline config.
+What this shows:
 
-## Retrieval mode vs end-to-end accuracy (pending)
+- **M1 acceptance is not met by the default graph.** `graph` scores 47/56 against 49/56 for the best baselines (`full_schema` and `retrieved_fewshot`), two questions short. The same graph with hybrid retrieval and no reranker scores 52/56 and clears the bar. With this much noise I would not claim the reranker hurts, but there is no evidence here that it helps, and it adds about 1.5 s per question.
+- Few-shot examples are the clearest single gain among the baselines (76.8% to 87.5%). The repair loop did not add accuracy here (87.5% to 83.9%, within noise). It spends extra calls on errors that are usually value mistakes, which a retry rarely fixes. See FAILURES.md.
+- The full schema in the prompt matches the best retrieved configuration. A 699 column schema fits easily in this model's context, so retrieval earns its keep on cost and latency rather than accuracy: `full_schema` costs about $0.009 per question against about $0.006 for `retrieved_fewshot`.
+- Differences between configurations are mostly within noise. I ran each once, so run to run variation at temperature 0 is not measured.
 
-Run `python -m nlagent.evaluate --config graph_vector`, `graph_hybrid` and `graph`.
+## Retrieval mode vs end-to-end accuracy (measured)
 
-## Latency and cost per query (pending)
+| Graph retrieval | recall@25 (columns) | Execution accuracy |
+|---|---|---|
+| vector | 0.409 | 85.7% (48/56) |
+| hybrid | 0.536 | 92.9% (52/56) |
+| hybrid + rerank | 0.521 | 83.9% (47/56) |
 
-Reported by the evaluation summary (`latency_p50_s`, `latency_p95_s`, `cost_per_query_usd`). Cost uses list prices in `llm.py`.
+Hybrid beats vector on both measures, in the same order for recall and for accuracy. The reranker does not beat hybrid on either. Recall below 0.55 still produced 84 to 93% accuracy because the prompt adds join keys and the model often needs only a few of the columns the metric counts.
 
-## LLM judge agreement (pending)
+## Latency and cost per query (measured)
 
-`benchmark/judge_labels.yaml` holds 20 hand-labelled cases (9 faithful, 11 with one deliberate fault). Run `make judge-eval` for agreement, and precision and recall for the unfaithful class.
+| Config | p50 | p95 | Cost per question |
+|---|---|---|---|
+| full_schema | 5.0 s | 19.9 s | $0.0091 |
+| retrieved_fewshot | 6.0 s | 20.8 s | $0.0057 |
+| retrieved_fewshot_repair | 5.5 s | 20.6 s | $0.0060 |
+| graph (default) | 9.1 s | 25.2 s | $0.0068 |
+| graph, hybrid | 7.8 s | 23.5 s | $0.0076 |
+
+Latency includes waiting on a shared API with retries, so treat it as a rough guide. The `retrieved` run had a p50 of 19 s because part of it ran under rate limiting, so it is left out of the table. Cost uses an estimated price of $0.50 per million input tokens and $3.00 per million output tokens (including thinking tokens). That price is my assumption, not Google's published rate. Check the Google billing page for actual spend.
+
+## LLM judge agreement (measured)
+
+20 hand-labelled cases (9 faithful, 11 with one deliberate fault). The judge matched the label on 20 of 20, with unfaithful precision 1.0 and recall 1.0. The cases were written with clear faults, so this is an easy test. A harder set with subtle unsupported claims would be needed to say much about the judge. An earlier run scored 90% while replies were being truncated by the token limit.
+
+## Method notes
+
+- **Truncation bug found and fixed.** The first full run scored 52 to 68% because Gemini's hidden thinking tokens counted against `max_tokens`, cutting answers off mid-word (`race_`, `sd.driver_`). The client now adds 4,096 tokens of headroom and raises an error if a reply is still cut off. Cost is now counted from total tokens, which includes thinking. The truncated reports are kept locally in `reports/old_truncated/` (not committed) and are not used in any table.
+- **Spend caps ended two runs early.** `retrieved` and `retrieved_fewshot` hit their caps after 33 and 54 questions. I ran only the missing questions and merged them (`scripts/merge_reports.py`), so every row above covers all 56 questions.
+- **Model choice.** `gemini-3.8-flash` returned 503 under load and `gemini-2.5-flash` is closed to new keys, so these results are from `gemini-3-flash-preview`. Numbers will differ on another model.
