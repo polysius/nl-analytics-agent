@@ -9,7 +9,7 @@ The database is [f1db](https://github.com/f1db/f1db), the maintained successor o
 | Milestone | State |
 |---|---|
 | Read-only safety, MCP server, benchmark, four baseline configs | Built and tested |
-| M1 LangGraph rebuild | Built and measured. The default graph scores 83.9% against 87.5% for the best baseline, so the acceptance bar is missed by two questions. The graph with hybrid retrieval and no reranker scores 92.9%. Differences are within noise at 56 questions. See [RESULTS.md](RESULTS.md) |
+| M1 LangGraph rebuild | Built and measured on two models. The default graph misses the "match the best baseline" bar by two questions on Gemini (83.9% vs 87.5%) and one on Sonnet (89.3% vs 91.1%). Differences between graph variants are within noise at 56 questions. See [RESULTS.md](RESULTS.md) |
 | M2 Retrieval layer | Built and measured. See [RESULTS.md](RESULTS.md) |
 | M3 Observability | Built and unit tested. Langfuse compose file included. Not yet run against a live Langfuse server |
 | M4 Evals in CI | Built. Judge agreement measured (20 of 20, on an easy label set). The PR gate has a committed baseline and is off until the Google key has credit (see CI) |
@@ -17,7 +17,7 @@ The database is [f1db](https://github.com/f1db/f1db), the maintained successor o
 | M6 Failure taxonomy | Done. Counts per configuration and three worked examples are in [FAILURES.md](FAILURES.md) |
 | M7 Multi-agent comparison | Not started (optional in the spec) |
 
-Every accuracy, latency and cost figure here was measured, with `gemini-3-flash-preview`, one run per configuration. Anything not yet measured is marked as such. `make eval-all` reproduces the baseline and graph runs.
+Every accuracy, latency and cost figure here was measured, on `gemini-3-flash-preview` and on Claude Sonnet through the Claude Code CLI, one run per configuration. Anything not yet measured is marked as such. `make eval-all` reproduces the baseline and graph runs.
 
 ## How a question flows
 
@@ -73,6 +73,8 @@ make judge-eval         # LLM judge agreement against the hand labels
 ```
 
 Any OpenAI-compatible server also works: set `LLM_PROVIDER=openai`, `LLM_BASE_URL` and `LLM_MODEL`.
+
+To use the Claude Code CLI you are signed in with instead of an API key, start the bridge on the host with `python scripts/claude_cli_bridge.py`, then run with `LLM_PROVIDER=openai LLM_BASE_URL=http://host.docker.internal:8787/v1 LLM_MODEL=sonnet LLM_API_KEY=x`. It listens on localhost only and counts against your Claude Code plan.
 
 ## Benchmark and baseline
 

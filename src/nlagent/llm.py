@@ -26,6 +26,10 @@ PRICE_PER_MTOK = {
     "claude-sonnet-5-5": (3.0, 15.0),
     "claude-haiku-5-5": (1.0, 5.0),
     "claude-opus-5-5": (5.0, 25.0),
+    # Short names used by the Claude Code CLI bridge (scripts/claude_cli_bridge.py).
+    "sonnet": (3.0, 15.0),
+    "haiku": (1.0, 5.0),
+    "opus": (5.0, 25.0),
     # Estimate used only to enforce spend caps. Check Google's price page for the real rate.
     "gemini-3-flash-preview": (0.50, 3.00),
 }
