@@ -1,5 +1,5 @@
 {
-  "execution_accuracy": 0.75,
+  "execution_accuracy": 0.85,
   "question_ids": [
     "q01",
     "q03",
@@ -22,5 +22,5 @@
     "q51",
     "q54"
   ],
-  "model": "gemini-3-flash-preview"
+  "model": "sonnet"
 }

@@ -19,6 +19,7 @@ from nlagent.failures import classify_failure
 from nlagent.graph import GraphConfig, build_graph, run_graph
 from nlagent.llm import LLMClient, ReplyTruncatedError, estimate_cost, get_llm
 from nlagent.runs import AgentRun
+from nlagent.tracing import emit_trace
 
 GRAPH_CONFIGS = {
     "graph": GraphConfig(retrieval="hybrid_rerank"),
@@ -121,6 +122,8 @@ def run_eval(config_name: str, llm: LLMClient, questions: list[Question], max_co
             run = AgentRun(question=question.question, status="failed", error=str(exc))
             run.usage.input_tokens = tally.input_tokens
             run.usage.output_tokens = tally.output_tokens
+        if run.trace:  # graph runs only; a no-op unless LANGFUSE_HOST and keys are set
+            emit_trace(run, user_id="benchmark", model=llm.model)
         row = score_question(question, run, llm.model)
         per_question.append(row)
         spent += row["cost_usd"]

@@ -1,3 +1,4 @@
+import itertools
 import json
 from datetime import UTC, datetime
 
@@ -5,7 +6,7 @@ import httpx
 
 from nlagent.runs import AgentRun
 from nlagent.steps import Usage
-from nlagent.tracing import build_events, emit_trace
+from nlagent.tracing import build_otlp_payload, emit_trace
 
 RUN = AgentRun(
     question="How many races in 2021?",
@@ -22,37 +23,65 @@ RUN = AgentRun(
         {"node": "repair", "latency_s": 0.9, "tokens_in": 100, "tokens_out": 10},
     ],
 )
+START = datetime(2026, 1, 1, tzinfo=UTC)
 
 
-def test_events_hold_one_trace_with_a_child_per_node():
-    events = build_events(RUN, "alice", "claude-sonnet-5-5", datetime(2026, 1, 1, tzinfo=UTC))
-
-    assert [e["type"] for e in events] == [
-        "trace-create", "span-create", "generation-create", "span-create", "generation-create",
-    ]
-    trace_id = events[0]["body"]["id"]
-    assert all(e["body"]["traceId"] == trace_id for e in events[1:])
+def spans_of(payload):
+    return payload["resourceSpans"][0]["scopeSpans"][0]["spans"]
 
 
-def test_llm_nodes_carry_tokens_and_cost_and_tool_errors_are_flagged():
-    events = build_events(RUN, "alice", "claude-sonnet-5-5", datetime(2026, 1, 1, tzinfo=UTC))
-    generation = events[2]["body"]
-    failed_execute = events[3]["body"]
+def attributes_of(span):
+    """Flatten OTLP attributes ({key, value: {stringValue: ...}}) into a plain dict."""
+    return {a["key"]: next(iter(a["value"].values())) for a in span["attributes"]}
 
-    assert generation["usage"] == {"input": 200, "output": 30, "unit": "TOKENS"}
-    assert generation["costDetails"]["total"] > 0
-    assert failed_execute["level"] == "ERROR"
-    assert failed_execute["statusMessage"] == "column yr does not exist"
+
+def test_payload_has_one_root_span_and_a_child_per_node():
+    spans = spans_of(build_otlp_payload(RUN, "alice", "claude-sonnet-5-5", START))
+
+    assert [s["name"] for s in spans] == ["f1-agent-question", "retrieve", "generate", "execute", "repair"]
+    root = spans[0]
+    assert "parentSpanId" not in root
+    assert all(s["traceId"] == root["traceId"] and s["parentSpanId"] == root["spanId"] for s in spans[1:])
+    assert len(root["traceId"]) == 32 and len(root["spanId"]) == 16
+
+
+def test_root_span_carries_the_question_answer_and_user():
+    root = spans_of(build_otlp_payload(RUN, "alice", "claude-sonnet-5-5", START))[0]
+    attrs = attributes_of(root)
+
+    assert attrs["user.id"] == "alice"
+    assert attrs["langfuse.trace.input"] == "How many races in 2021?"
+    assert attrs["langfuse.trace.output"] == "22 races."
+    assert attrs["langfuse.trace.metadata.status"] == "answered"
+
+
+def test_llm_nodes_are_generations_with_tokens_and_cost():
+    spans = spans_of(build_otlp_payload(RUN, "alice", "claude-sonnet-5-5", START))
+    generate = attributes_of(spans[2])
+
+    assert generate["langfuse.observation.type"] == "generation"
+    assert json.loads(generate["langfuse.observation.usage_details"]) == {"input": 200, "output": 30}
+    assert json.loads(generate["langfuse.observation.cost_details"])["total"] > 0
+    assert generate["gen_ai.request.model"] == "claude-sonnet-5-5"
+    assert attributes_of(spans[1])["langfuse.observation.type"] == "span"
+
+
+def test_tool_errors_are_flagged_on_the_span():
+    execute = spans_of(build_otlp_payload(RUN, "alice", "claude-sonnet-5-5", START))[3]
+    attrs = attributes_of(execute)
+
+    assert attrs["langfuse.observation.level"] == "ERROR"
+    assert attrs["langfuse.observation.status_message"] == "column yr does not exist"
+    assert execute["status"] == {"code": 2, "message": "column yr does not exist"}
 
 
 def test_node_times_follow_each_other_without_gaps():
-    events = build_events(RUN, "alice", "claude-sonnet-5-5", datetime(2026, 1, 1, tzinfo=UTC))
-    nodes = [e["body"] for e in events[1:]]
-    for earlier, later in zip(nodes, nodes[1:], strict=False):
-        assert earlier["endTime"] == later["startTime"]
+    nodes = spans_of(build_otlp_payload(RUN, "alice", "claude-sonnet-5-5", START))[1:]
+    for earlier, later in itertools.pairwise(nodes):
+        assert earlier["endTimeUnixNano"] == later["startTimeUnixNano"]
 
 
-def test_emit_posts_a_batch_with_basic_auth(monkeypatch):
+def test_emit_posts_otlp_json_with_basic_auth(monkeypatch):
     monkeypatch.setenv("LANGFUSE_HOST", "http://langfuse.test")
     monkeypatch.setenv("LANGFUSE_PUBLIC_KEY", "pk")
     monkeypatch.setenv("LANGFUSE_SECRET_KEY", "sk")
@@ -61,14 +90,14 @@ def test_emit_posts_a_batch_with_basic_auth(monkeypatch):
     def handler(request: httpx.Request) -> httpx.Response:
         seen["url"] = str(request.url)
         seen["auth"] = request.headers["authorization"]
-        seen["batch"] = json.loads(request.content)["batch"]
-        return httpx.Response(207, json={"successes": [], "errors": []})
+        seen["body"] = json.loads(request.content)
+        return httpx.Response(200, json={})
 
     emit_trace(RUN, "alice", "claude-sonnet-5-5", client=httpx.Client(transport=httpx.MockTransport(handler)))
 
-    assert seen["url"] == "http://langfuse.test/api/public/ingestion"
+    assert seen["url"] == "http://langfuse.test/api/public/otel/v1/traces"
     assert seen["auth"].startswith("Basic ")
-    assert len(seen["batch"]) == 5
+    assert len(spans_of(seen["body"])) == 5
 
 
 def test_emit_never_raises_when_langfuse_is_down(monkeypatch):
