@@ -120,6 +120,19 @@ Where they differ: Sonnet's misses are mostly about the shape of the answer unde
 
 The LLM judge was not rerun on Sonnet.
 
+## Intent classifier check (measured, Claude Sonnet)
+
+The classifier sorts each question into data_question, ambiguous or out_of_scope. A wrong refusal turns a real user away, so `scripts/check_classifier.py` checks that all 56 benchmark questions come back as data_question, plus hand-labelled cases in `benchmark/triage.yaml` (10 out of scope including injection and write requests, 6 ambiguous, 8 plain data questions).
+
+| Prompt | Benchmark + triage (80 cases) | Held-out (20 cases) |
+|---|---|---|
+| Before | 78 of 80. Two false refusals: q20 (out of scope) and q11 (ambiguous) | 17 of 20. Three false refusals of data questions |
+| After | 80 of 80 | 19 of 20 |
+
+The fix rewrote `CLASSIFY_SYSTEM`: it now lists what the database covers, says that a single fact such as a circuit's direction counts as a data question, restricts "ambiguous" to questions with no sensible default reading, and says to choose data_question when unsure.
+
+Three caveats. The first rewrite named the failing questions' own topics, so it was partly tuned to the benchmark. I replaced those examples with a circuit's length and a constructor's nationality, which also appear in the 80 case set, so that set is not independent of the prompt. The 20 questions in `benchmark/triage_heldout.yaml` do not overlap those two examples, but they are not fully independent either: the prompt's topic list names tyre suppliers, which matches the held-out question about the 1980 tyre manufacturer, and two other prompt examples ("who is the best driver?", "how many wins?") also appear in the 80 case set. That is where the "before" prompt wrongly refused 3 of 10 data questions and the "after" prompt refused none. An earlier version of the prompt used examples that did overlap two held-out questions. I caught it in review, changed the examples, and remeasured, and the result was the same. I did see the held-out results before finalising, though I changed nothing in response to them. Second, the new prompt is more willing to answer: it answered "Compare Hamilton and Verstappen." instead of asking what to compare, which was the one held-out miss. That is the intended trade, but it means some under-specified questions get a default reading. Twenty held-out cases is small, and each case was run once. A full graph run on q11 and q20 after the fix, recorded in `reports/sonnet/classifier_fix_e2e.json`, answered both correctly.
+
 ## Method notes
 
 - **Truncation bug found and fixed.** The first full run scored 52 to 68% because Gemini's hidden thinking tokens counted against `max_tokens`, cutting answers off mid-word (`race_`, `sd.driver_`). The client now adds 4,096 tokens of headroom and raises an error if a reply is still cut off. Cost is now counted from total tokens, which includes thinking. The truncated reports are kept locally in `reports/old_truncated/` (not committed) and are not used in any table.
