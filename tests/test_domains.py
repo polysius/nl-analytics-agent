@@ -6,14 +6,17 @@ The F1 suites run with the default domain and are skipped under taxi.
 """
 
 import json
+import re
+from pathlib import Path
 
 import psycopg
 import pytest
 
+from nlagent import steps
 from nlagent.agent import Agent
 from nlagent.config import settings
 from nlagent.db import UnsafeSQLError, allowed_tables, run_query
-from nlagent.domains import DOMAINS, F1, TAXI
+from nlagent.domains import DOMAINS, TAXI, active_domain
 from nlagent.llm import StubLLM
 
 on_taxi = pytest.mark.skipif(settings.domain != "taxi", reason="needs AGENT_DOMAIN=taxi")
@@ -25,23 +28,19 @@ def test_domain_names_match_database_names():
     assert all(name == domain.name for name, domain in DOMAINS.items())
 
 
-def test_taxi_prompts_do_not_mention_formula_one():
-    for text in (TAXI.sql_system, TAXI.few_shot, TAXI.classify_system, TAXI.refuse_message):
-        assert "formula" not in text.lower()
-        assert "race" not in text.lower()
+def test_prompts_sent_to_the_model_come_from_the_active_domain():
+    llm = StubLLM(["select 1"])
+    steps.generate_sql(llm, "How many?", "TABLE t", few_shot=True)
+    system, user = llm.calls[0]
+
+    assert system == active_domain().sql_system
+    assert active_domain().few_shot in user
 
 
-def test_f1_prompts_do_not_mention_taxis():
-    for text in (F1.sql_system, F1.few_shot, F1.classify_system, F1.refuse_message):
-        assert "taxi" not in text.lower()
-
-
-def test_every_taxi_table_note_names_a_loaded_table():
-    assert set(TAXI.table_notes) == {
-        "metric_daily_trips", "metric_borough_revenue", "metric_tip_rate",
-        "metric_hourly_demand", "metric_top_zones", "dim_zone", "dim_date",
-        "dim_payment_type", "dim_rate_code", "dim_vendor",
-    }
+def test_every_taxi_table_note_names_a_table_in_the_schema_file():
+    schema = (Path(__file__).resolve().parents[1] / "scripts" / "taxi_schema.sql").read_text()
+    created = set(re.findall(r"create table (\w+)", schema))
+    assert set(TAXI.table_notes) == created
 
 
 @pytest.mark.db

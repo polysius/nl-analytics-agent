@@ -141,7 +141,7 @@ AGENT_DOMAIN=taxi docker compose --profile tools run --rm -T app python scripts/
 AGENT_DOMAIN=taxi docker compose --profile tools run --rm -T app python -m nlagent.evaluate --config graph
 ```
 
-For the MCP server, register a second server with `AGENT_DOMAIN=taxi` in its environment next to the
+For the MCP server, register a second server (`taxi-analytics`, tool `ask_taxi`) with `AGENT_DOMAIN=taxi` in its environment next to the
 F1 one. The question set is `benchmark/taxi_questions.yaml`, 18 questions. Results are in RESULTS.md.
 
 ## Limitations

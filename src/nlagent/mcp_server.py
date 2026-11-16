@@ -1,6 +1,8 @@
-"""MCP server that exposes the F1 agent to Claude Code, Cursor and other MCP clients.
+"""MCP server that exposes the agent to Claude Code, Cursor and other MCP clients.
 
 Run over stdio:  python -m nlagent.mcp_server
+The server follows AGENT_DOMAIN: the F1 server is `f1-analytics` with `ask_f1`, the taxi server
+is `taxi-analytics` with `ask_taxi`.
 
 Tools:
   ask_f1         Ask a question in plain English. Needs an LLM key.
@@ -12,11 +14,13 @@ from mcp.server.mcpserver import MCPServer
 
 from nlagent.agent import Agent
 from nlagent.db import QueryError, UnsafeSQLError, run_query
+from nlagent.domains import active_domain
 from nlagent.llm import get_llm
 from nlagent.retrieval import render_schema, retrieve_columns
 from nlagent.steps import format_result
 
-mcp = MCPServer("f1-analytics")
+domain = active_domain()
+mcp = MCPServer(f"{domain.name}-analytics")
 _agent: Agent | None = None
 
 
@@ -28,18 +32,16 @@ def _get_agent() -> Agent:
     return _agent
 
 
-@mcp.tool()
-def ask_f1(question: str) -> str:
-    """Answer a question about Formula 1 results, drivers, teams, circuits and standings."""
+@mcp.tool(name=f"ask_{domain.name}", description=f"Answer a question about {domain.subject}.")
+def ask(question: str) -> str:
     run = _get_agent().ask(question, user_id="mcp")
     if run.status != "answered":
         return f"[{run.status}] {run.answer}"
     return f"{run.answer}\n\nSQL:\n{run.sql}"
 
 
-@mcp.tool()
+@mcp.tool(description="Run one read-only SELECT query against the database (row cap and timeout apply).")
 def run_sql(sql: str) -> str:
-    """Run one read-only SELECT query against the F1 database (row cap and timeout apply)."""
     try:
         return format_result(run_query(sql))
     except (UnsafeSQLError, QueryError) as error:

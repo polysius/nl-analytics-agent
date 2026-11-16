@@ -14,6 +14,7 @@ from nlagent.config import settings
 @dataclass(frozen=True)
 class Domain:
     name: str
+    subject: str  # what questions are about, for tool descriptions
     sql_system: str
     few_shot: str
     classify_system: str
@@ -23,6 +24,7 @@ class Domain:
 
 F1 = Domain(
     name="f1",
+    subject="Formula 1 results, drivers, teams, circuits and standings",
     sql_system="""You write PostgreSQL queries over a Formula 1 database.
 Rules:
 - Reply with exactly one SELECT query and nothing else. No explanation.
@@ -90,6 +92,7 @@ When unsure between data_question and either other label, choose data_question."
 
 TAXI = Domain(
     name="taxi",
+    subject="2024 New York City yellow taxi trips, revenue, tips and pickup zones",
     sql_system="""You write PostgreSQL queries over a summary of 2024 New York City yellow taxi trips.
 Rules:
 - Reply with exactly one SELECT query and nothing else. No explanation.
