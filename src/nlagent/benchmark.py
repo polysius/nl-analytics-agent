@@ -12,8 +12,13 @@ from sqlglot import expressions as exp
 from sqlglot.optimizer.qualify import qualify
 
 from nlagent.catalogue import ColumnDoc
+from nlagent.config import settings
 
-QUESTIONS_PATH = Path(__file__).resolve().parents[2] / "benchmark" / "questions.yaml"
+BENCHMARK_DIR = Path(__file__).resolve().parents[2] / "benchmark"
+# F1 keeps its original file name. Other domains use <domain>_questions.yaml.
+QUESTIONS_PATH = BENCHMARK_DIR / (
+    "questions.yaml" if settings.domain == "f1" else f"{settings.domain}_questions.yaml"
+)
 
 # A per-type view column means the same as the prefixed column of race_data.
 VIEW_PREFIX = {

@@ -1,4 +1,4 @@
-"""Embed every column of the F1 database into catalog.columns. Run once after loading the data."""
+"""Embed every column of the active domain's database into catalog.columns. Run once after loading the data."""
 
 from nlagent.catalogue import build_catalogue
 from nlagent.retrieval import embed_texts

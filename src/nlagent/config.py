@@ -6,11 +6,16 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class Settings:
+    # Which database the process answers questions about. The name is also the Postgres database.
+    domain: str = os.getenv("AGENT_DOMAIN", "f1")
     # Read-only role used for every query the agent runs on behalf of a user.
-    database_url: str = os.getenv("DATABASE_URL", "postgresql://agent_ro:agent_ro@localhost:5433/f1")
+    database_url: str = os.getenv(
+        "DATABASE_URL", f"postgresql://agent_ro:agent_ro@localhost:5433/{os.getenv('AGENT_DOMAIN', 'f1')}"
+    )
     # Admin role, used only to build the embedding catalogue and the roles.
     admin_database_url: str = os.getenv(
-        "ADMIN_DATABASE_URL", "postgresql://admin:admin@localhost:5433/f1"
+        "ADMIN_DATABASE_URL",
+        f"postgresql://admin:admin@localhost:5433/{os.getenv('AGENT_DOMAIN', 'f1')}",
     )
     row_cap: int = int(os.getenv("ROW_CAP", "200"))
     statement_timeout_ms: int = int(os.getenv("STATEMENT_TIMEOUT_MS", "10000"))

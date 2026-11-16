@@ -18,6 +18,7 @@ from langgraph.graph import END, START, StateGraph
 from nlagent import steps
 from nlagent.config import settings
 from nlagent.db import QueryError, QueryResult, UnsafeSQLError, run_query
+from nlagent.domains import active_domain
 from nlagent.llm import LLMClient
 from nlagent.retrieval import RetrievalMode, render_schema, retrieve_columns
 from nlagent.runs import AgentRun
@@ -87,9 +88,7 @@ def build_graph(llm: LLMClient, config: GraphConfig | None = None):
 
     @traced("refuse")
     def refuse(state: AgentState) -> dict:
-        message = ("I can only answer questions about Formula 1 results, drivers, teams, circuits "
-                   "and standings, and I cannot change data.")
-        return {"status": "refused", "answer": message}
+        return {"status": "refused", "answer": active_domain().refuse_message}
 
     @traced("retrieve")
     def retrieve(state: AgentState) -> dict:
