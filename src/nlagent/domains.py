@@ -143,7 +143,7 @@ When unsure between data_question and either other label, choose data_question."
         "metric_hourly_demand": "One row per weekday and pickup hour: trips. day_of_week runs 1 (Sunday) to 7 (Saturday).",
         "metric_top_zones": "The 15 pickup zones with the most revenue: trips, revenue, avg_total.",
         "dim_zone": "The 265 taxi zones: zone_id, borough, zone name, service_zone.",
-        "dim_date": "One row per calendar day: year, quarter, month, month_name, day_of_week, day_name, is_weekend.",
+        "dim_date": "One row per calendar day: year, quarter, month, month_name, day_of_week, day_name, is_weekend. Covers 2024 to 2026, so filter on year = 2024.",
         "dim_payment_type": "Payment type ids and names.",
         "dim_rate_code": "Rate code ids and names, such as Standard rate and JFK.",
         "dim_vendor": "Taxi technology vendors.",
