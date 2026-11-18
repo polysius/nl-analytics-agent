@@ -170,3 +170,22 @@ The gate catches a broken prompt. The unchanged rerun lost a question on its own
 - **Spend caps ended two runs early.** `retrieved` and `retrieved_fewshot` hit their caps after 33 and 54 questions. I ran only the missing questions and merged them (`scripts/merge_reports.py`), so every row above covers all 56 questions.
 - **Bridge runs.** The first Sonnet attempt launched three evaluations at once and every call failed with an empty error, so the runs were redone one at a time. The bridge now reports the CLI's real error text.
 - **Model choice.** `gemini-3.8-flash` returned 503 under load and `gemini-2.5-flash` is closed to new keys, so these results are from `gemini-3-flash-preview`. Numbers will differ on another model.
+
+## Second database: NYC taxi (measured)
+
+The agent was pointed at a Postgres snapshot of the lakehouse-pipeline gold tables (`AGENT_DOMAIN=taxi`): five metric tables and five dimensions, 2,000 rows in all. The question set is `benchmark/taxi_questions.yaml`, 18 questions with gold SQL that was executed and inspected. The grand totals match the lakehouse project: 39,687,869 trips. One run, the default `graph` configuration, Sonnet through the Claude Code bridge.
+
+| Difficulty | Questions | Correct |
+|---|---|---|
+| easy | 6 | 6 |
+| medium | 7 | 6 |
+| hard | 5 | 5 |
+| all | 18 | 17 (94.4%) |
+
+Each question is worth 5.6 points, so this is a small sample and one rerun could move it by a question. Latency was p50 8.0 s and p95 10.4 s, and cost was $0.011 per question.
+
+The one miss, t08 ("Which month had the highest revenue?"), returned the date `2024-10-01` where the gold query returned the name `October`. The answer is right in substance and scored wrong under exact execution matching. The failure classifier labelled it `wrong_join`, but no join was involved, which is another case of the classifier mislabelling.
+
+Questions on this set are easier than the F1 set: the tables are few (39 columns) and already aggregated. The number should not be compared with the F1 accuracy.
+
+Regression check on F1 after the change: the 20-question accuracy gate scores 85% (17 of 20) against the 85% baseline and passes. The F1 prompts and table notes were compared with the previous text and are identical. The unit suite passes (132 passed, 9 skipped) and 13 taxi tests pass under `AGENT_DOMAIN=taxi`.

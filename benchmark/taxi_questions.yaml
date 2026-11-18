@@ -1,0 +1,115 @@
+# Benchmark for the text-to-SQL agent on the taxi database (AGENT_DOMAIN=taxi), a Postgres
+# snapshot of the lakehouse-pipeline gold tables for 2024. Every gold query was executed and its
+# output inspected (scripts/verify_benchmark.py). The grand totals match the lakehouse project's
+# own figures: 39,687,869 trips. Status: written by the repository author's assistant and
+# verified by execution; a human review of each answer is still pending.
+#
+# Fields as in questions.yaml.
+
+- id: t01
+  difficulty: easy
+  question: How many taxi trips were taken in 2024?
+  gold_sql: select sum(trips) from metric_daily_trips
+
+- id: t02
+  difficulty: easy
+  question: What was the total taxi revenue in 2024?
+  gold_sql: select sum(revenue) from metric_daily_trips
+
+- id: t03
+  difficulty: easy
+  question: How many taxi zones are in Queens?
+  gold_sql: select count(*) from dim_zone where borough = 'Queens'
+
+- id: t04
+  difficulty: easy
+  question: Which pickup borough had the most trips?
+  gold_sql: select borough from metric_borough_revenue group by borough order by sum(trips) desc limit 1
+
+- id: t05
+  difficulty: easy
+  question: How many trips were paid in cash?
+  gold_sql: select trips from metric_tip_rate where payment_type_name = 'Cash'
+
+- id: t06
+  difficulty: easy
+  question: On which date were the most trips taken?
+  gold_sql: select pickup_date from metric_daily_trips order by trips desc limit 1
+
+- id: t07
+  difficulty: medium
+  question: What was the total revenue in July?
+  gold_sql: >
+    select sum(d.revenue) from metric_daily_trips d
+    join dim_date dd on dd.date_day = d.pickup_date where dd.month = 7
+
+- id: t08
+  difficulty: medium
+  question: Which month had the highest revenue?
+  gold_sql: >
+    select dd.month_name from metric_daily_trips d
+    join dim_date dd on dd.date_day = d.pickup_date
+    group by dd.month, dd.month_name order by sum(d.revenue) desc limit 1
+
+- id: t09
+  difficulty: medium
+  question: How many trips were taken on weekends?
+  gold_sql: >
+    select sum(d.trips) from metric_daily_trips d
+    join dim_date dd on dd.date_day = d.pickup_date where dd.is_weekend
+
+- id: t10
+  difficulty: medium
+  question: Which pickup hour of the day has the most trips overall?
+  gold_sql: select pickup_hour from metric_hourly_demand group by pickup_hour order by sum(trips) desc limit 1
+
+- id: t11
+  difficulty: medium
+  question: Which day of the week is the busiest by trips?
+  gold_sql: select day_name from metric_hourly_demand group by day_name order by sum(trips) desc limit 1
+
+- id: t12
+  difficulty: medium
+  question: Which payment type has the highest average tip rate?
+  gold_sql: select payment_type_name from metric_tip_rate order by avg_tip_rate desc limit 1
+
+- id: t13
+  difficulty: medium
+  question: List the revenue of each pickup borough in December, highest first.
+  ordered: true
+  gold_sql: >
+    select borough, revenue from metric_borough_revenue
+    where month = '2024-12-01' order by revenue desc
+
+- id: t14
+  difficulty: hard
+  question: Which Manhattan zone has the most trips among the top 15 revenue zones?
+  gold_sql: select zone from metric_top_zones where borough = 'Manhattan' order by trips desc limit 1
+
+- id: t15
+  difficulty: hard
+  question: How many of the top 15 revenue zones are in Queens, and what is their combined revenue?
+  gold_sql: select count(*), sum(revenue) from metric_top_zones where borough = 'Queens'
+
+- id: t16
+  difficulty: hard
+  question: Are there more trips per day on average on weekdays or on weekends, and what are the two averages?
+  gold_sql: >
+    select dd.is_weekend, avg(d.trips) from metric_daily_trips d
+    join dim_date dd on dd.date_day = d.pickup_date group by dd.is_weekend order by dd.is_weekend
+  ordered: true
+
+- id: t17
+  difficulty: hard
+  question: Which day of the week earns the most revenue in total?
+  gold_sql: >
+    select dd.day_name from metric_daily_trips d
+    join dim_date dd on dd.date_day = d.pickup_date
+    group by dd.day_name order by sum(d.revenue) desc limit 1
+
+- id: t18
+  difficulty: hard
+  question: In which month was Manhattan's share of all trips the lowest?
+  gold_sql: >
+    select month from metric_borough_revenue group by month
+    order by sum(case when borough = 'Manhattan' then trips end)::numeric / sum(trips) asc limit 1

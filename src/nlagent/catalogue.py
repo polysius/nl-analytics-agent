@@ -10,29 +10,12 @@ import psycopg
 from pgvector.psycopg import register_vector
 
 from nlagent.config import settings
+from nlagent.domains import active_domain
 
 EMBEDDING_DIMENSIONS = 384  # output size of BAAI/bge-small-en-v1.5
 
 # Hand-written notes for places where the column names alone mislead a model.
-TABLE_NOTES = {
-    "race_data": (
-        "One wide table for every kind of per-driver-per-race result. The `type` column says "
-        "which kind: RACE_RESULT, QUALIFYING_RESULT, STARTING_GRID_POSITION, PIT_STOP, "
-        "FASTEST_LAP, SPRINT_RACE_RESULT and others. Columns are prefixed by kind and only "
-        "filled for the matching type. Prefer the per-type views (race_result, "
-        "qualifying_result, pit_stop, fastest_lap, starting_grid_position) which already filter `type`."
-    ),
-    "race_result": "View of race_data for race finishes, one row per driver per race: position_number (final position, 1 = win), points, pole_position (bool), grid_position_number, laps, fastest_lap (bool), reason_retired, time_millis.",
-    "qualifying_result": "View of race_data for qualifying: position_number, time_millis, q1, q2, q3.",
-    "pit_stop": "View of race_data for pit stops: stop (stop number), lap, time_millis.",
-    "fastest_lap": "View of race_data for each driver's fastest lap in a race: lap, time_millis.",
-    "starting_grid_position": "View of race_data for the starting grid: position_number, grid_penalty_positions.",
-    "driver": "Drivers. `id` is a slug such as 'max-verstappen'. Career totals are stored here.",
-    "constructor": "Teams. `id` is a slug such as 'ferrari'. Career totals are stored here.",
-    "race": "One row per Grand Prix. `year` and `round` identify the season and order.",
-    "season_driver_standing": "Final drivers' championship table per year. `championship_won` marks the champion.",
-    "season_constructor_standing": "Final constructors' championship table per year.",
-}
+TABLE_NOTES = active_domain().table_notes
 
 
 @dataclass(frozen=True)

@@ -14,6 +14,7 @@ from datetime import UTC, datetime, timedelta
 
 import httpx
 
+from nlagent.config import settings
 from nlagent.llm import estimate_cost
 from nlagent.runs import AgentRun
 
@@ -69,9 +70,9 @@ def build_otlp_payload(run: AgentRun, user_id: str, model: str, started_at: date
     total_cost = estimate_cost(model, run.usage.input_tokens, run.usage.output_tokens)
     ended_at = started_at + timedelta(seconds=run.total_latency_s)
 
-    root = _span(trace_id, None, "f1-agent-question", started_at, ended_at, {
+    root = _span(trace_id, None, f"{settings.domain}-agent-question", started_at, ended_at, {
         "langfuse.observation.type": "span",
-        "langfuse.trace.name": "f1-agent-question",
+        "langfuse.trace.name": f"{settings.domain}-agent-question",
         "user.id": user_id,
         "langfuse.trace.input": run.question,
         "langfuse.trace.output": run.answer,
@@ -110,7 +111,7 @@ def build_otlp_payload(run: AgentRun, user_id: str, model: str, started_at: date
         cursor = node_end
 
     return {"resourceSpans": [{
-        "resource": {"attributes": [_attribute("service.name", "f1-agent")]},
+        "resource": {"attributes": [_attribute("service.name", f"{settings.domain}-agent")]},
         "scopeSpans": [{"scope": {"name": "nlagent"}, "spans": spans}],
     }]}
 

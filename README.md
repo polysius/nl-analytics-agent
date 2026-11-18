@@ -15,6 +15,7 @@ The database is [f1db](https://github.com/f1db/f1db), the maintained successor o
 | M4 Evals in CI | Accuracy gate built and shown to fail on a broken prompt (85% baseline, a sabotaged prompt scores 40% and exits 1). It runs locally through the Claude Code bridge, not in GitHub Actions. Judge agreement is measured on an easy label set |
 | M5 Guardrails | Built and tested. 17 compromised-LLM attacks and 5 injection phrases all stopped |
 | M6 Failure taxonomy | Done. Counts per configuration and three worked examples are in [FAILURES.md](FAILURES.md) |
+| Second database (taxi, from lakehouse-pipeline) | Built. 17 of 18 questions correct on Sonnet. See [RESULTS.md](RESULTS.md) |
 | M7 Multi-agent comparison | Not started (optional in the spec) |
 
 Every accuracy, latency and cost figure here was measured, on `gemini-3-flash-preview` and on Claude Sonnet through the Claude Code CLI, one run per configuration. Anything not yet measured is marked as such. `make eval-all` reproduces the baseline and graph runs.
@@ -117,6 +118,31 @@ For Cursor, add the same command and arguments to `mcp.json`. Tools: `ask_f1` (n
 The accuracy gate runs locally, not in GitHub, because the model is the Claude Code CLI on your machine (`scripts/claude_cli_bridge.py`) and GitHub's runners cannot reach it. Start the bridge, then run `make eval-subset`. It scores a fixed 20-question subset and exits with an error if accuracy falls more than 10 points below `benchmark/ci_baseline.json` (85%, 17 of 20, measured on Sonnet). After an intentional change, rewrite the baseline with `make gate-baseline`. `scripts/demo_broken_prompt.py` shows the gate failing on a sabotaged prompt, and RESULTS.md has the measured outcome.
 
 One question is 5 points on a 20-question subset and the CLI has no temperature setting, so an unchanged branch can move by a question or two between runs. Treat a failure as a prompt to look, not as proof of a regression. To move the gate back into GitHub Actions, run it on a self-hosted runner next to the bridge, or point it at a hosted API key.
+
+## A second database: NYC taxi trips
+
+The agent can answer questions about a second database, the gold tables of the
+[lakehouse-pipeline](https://github.com/polysius/lakehouse-pipeline) project (2024 NYC yellow taxi trips).
+A process serves one database, chosen by `AGENT_DOMAIN` (`f1` by default, or `taxi`). The name is
+also the Postgres database name. Prompts, table notes and the refusal message for each subject
+live in `src/nlagent/domains.py`. The graph, the SQL guard, the roles and the retrieval code are
+shared, so the three read-only layers apply to the taxi database unchanged.
+
+The taxi database is a snapshot, not a live connection. `scripts/export_gold.py` in the lakehouse
+project exports the five metric tables and five dimensions (about 2,000 rows) to CSV, and those
+files are committed in `data/taxi/`. The 39.7 million row fact table is not included, so the agent
+answers from the pre-aggregated metrics. A live Databricks connection would need a credential with
+SELECT access only on `workspace.gold`. The personal access token of a Free Edition workspace can
+write, so it would remove the read-only role layer.
+
+```bash
+AGENT_DOMAIN=taxi docker compose --profile tools run --rm -T app python scripts/load_taxi.py
+AGENT_DOMAIN=taxi docker compose --profile tools run --rm -T app python scripts/build_catalogue.py
+AGENT_DOMAIN=taxi docker compose --profile tools run --rm -T app python -m nlagent.evaluate --config graph
+```
+
+For the MCP server, register a second server (`taxi-analytics`, tool `ask_taxi`) with `AGENT_DOMAIN=taxi` in its environment next to the
+F1 one. The question set is `benchmark/taxi_questions.yaml`, 18 questions. Results are in RESULTS.md.
 
 ## Limitations
 
